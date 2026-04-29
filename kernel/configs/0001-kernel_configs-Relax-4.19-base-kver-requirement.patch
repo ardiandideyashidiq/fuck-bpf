@@ -1,9 +1,9 @@
-From 6be78f12476d09cb62f549cfc7f2fe5680905c95 Mon Sep 17 00:00:00 2001
-From: Aryan Sinha <techyminati@outlook.com>
-Date: Fri, 20 Feb 2026 17:26:49 +0100
-Subject: [PATCH 1/6] kernel_configs: Relax 4.19 base kver requirement
+From 184eaf155bd791f60881761de5500d101d0b606c Mon Sep 17 00:00:00 2001
+From: OpenCode <opencode@example.com>
+Date: Wed, 29 Apr 2026 22:49:17 +0700
+Subject: [PATCH] kernel_configs: Relax 4.19 base kver requirement
 
-* fuck this my homies can use 4.19.191 too
+Change-Id: I734732c9ae42cd3a04223952f816799223e75217
 ---
  s/android-4.19/android-base-conditional.xml | 26 +--------------------
  1 file changed, 1 insertion(+), 25 deletions(-)
@@ -57,5 +57,5 @@ index fa5515b..8aab2a0 100644
  		<key>CONFIG_BPF_JIT_ALWAYS_ON</key>
  		<value type="bool">y</value>
 -- 
-2.46.0
+2.54.0
 
