@@ -1,0 +1,74 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-merge-conflict
+
+- repo: local
+  hooks:
+  - id: patch-mbox-footer
+    name: patch mbox footer check
+    entry: bash
+    args:
+    - -c
+    - |
+      exit_code=0
+      for f in "$@"; do
+        if ! perl -0ne 'exit((/\n-- \n[^\n]+\n\z/s) ? 0 : 1)' "$f"; then
+          echo "[BLOCKED] missing mbox footer '-- ': $f"
+          exit_code=1
+        fi
+        if ! perl -0ne 'exit((/\n\z/s) ? 0 : 1)' "$f"; then
+          echo "[BLOCKED] missing trailing newline: $f"
+          exit_code=1
+        fi
+      done
+      exit "$exit_code"
+    language: system
+    files: '\.patch$'
+
+  - id: patch-creates-patch
+    name: detect patches that create other patches
+    entry: bash
+    args:
+    - -c
+    - |
+      exit_code=0
+      for f in "$@"; do
+        if grep -q '^diff --git a/.*\.patch ' "$f"; then
+          echo "[BLOCKED] patch creates or modifies another .patch file: $f"
+          exit_code=1
+        fi
+      done
+      exit "$exit_code"
+    language: system
+    files: '\.patch$'
+
+  - id: patch-numbering-order
+    name: check patch numbering order per directory
+    entry: bash
+    args:
+    - -c
+    - |
+      exit_code=0
+      dirs=$(printf '%s\n' "$@" | xargs -r -n1 dirname | sort -u)
+      for dir in $dirs; do
+        prev=0
+        for patch in "$dir"/*.patch; do
+          [ -e "$patch" ] || continue
+          num=$(basename "$patch" | sed -E 's/^([0-9]+).*/\1/')
+          if ! [[ "$num" =~ ^[0-9]+$ ]]; then
+            echo "[BLOCKED] patch file missing numeric prefix: $patch"
+            exit_code=1
+            continue
+          fi
+          if [ "$prev" -ne 0 ] && [ $((10#$num)) -le $((10#$prev)) ]; then
+            echo "[BLOCKED] patch numbering must increase in $dir: $(basename "$patch")"
+            exit_code=1
+          fi
+          prev=$num
+        done
+      done
+      exit "$exit_code"
+    language: system
+    files: '\.patch$'

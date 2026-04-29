@@ -23,7 +23,7 @@ index 7367ec5e979..f7fd8b99a7a 100644
 +        ALOGE("Failed loading egress program");
 +    }
 +    auto ret2 = attachProgramToCgroup(BPF_INGRESS_PROG_PATH, cg_fd, BPF_CGROUP_INET_INGRESS);
-+    if (!isOk(ret)) {
++    if (!isOk(ret2)) {
 +        ALOGE("Failed loading ingress program");
 +    }
  
@@ -31,4 +31,3 @@ index 7367ec5e979..f7fd8b99a7a 100644
      // should be loaded successfully by bpfloader. So we attach the filter to
 -- 
 2.34.1
-
