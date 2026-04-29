@@ -1,20 +1,20 @@
-From 184eaf155bd791f60881761de5500d101d0b606c Mon Sep 17 00:00:00 2001
+From d89853e00eb8cf00f8868e440437b471c0ae6161 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
-Date: Wed, 29 Apr 2026 22:49:17 +0700
-Subject: [PATCH] kernel_configs: Relax 4.19 base kver requirement
+Date: Wed, 29 Apr 2026 22:57:18 +0700
+Subject: [PATCH] kernel_configs: Lower 4.19 requirements to 4.19.127
 
-Change-Id: I734732c9ae42cd3a04223952f816799223e75217
+Change-Id: I8773a0ea10a0da3230d00115d86c5f0046fa37c2
 ---
  s/android-4.19/android-base-conditional.xml | 26 +--------------------
  1 file changed, 1 insertion(+), 25 deletions(-)
 
 diff --git a/s/android-4.19/android-base-conditional.xml b/s/android-4.19/android-base-conditional.xml
-index fa5515b..8aab2a0 100644
+index fa5515b..24e2b47 100644
 --- a/s/android-4.19/android-base-conditional.xml
 +++ b/s/android-4.19/android-base-conditional.xml
 @@ -1,4 +1,4 @@
 -<kernel minlts="4.19.325" />
-+<kernel minlts="4.19.191" />
++<kernel minlts="4.19.127" />
  
  <!-- KEEP ALPHABETICALLY SORTED -->
  <!-- ARM base requirements -->
