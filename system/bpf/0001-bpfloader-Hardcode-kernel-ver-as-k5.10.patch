@@ -12,7 +12,7 @@ diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
 index 34e9b68..4d3e248 100644
 --- a/loader/bpfloader.rs
 +++ b/loader/bpfloader.rs
-@@ -24,14 +24,10 @@ use libbpf_rs::{
+@@ -24,14 +24,9 @@ use libbpf_rs::{
      ProgramType,
  };
  use libbpf_sys::{bpf_map__autocreate, bpf_program__set_type};
