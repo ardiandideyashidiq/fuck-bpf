@@ -1,24 +1,25 @@
 # AGENTS.md
 
 ## Repo Shape
-- This repo is a patch collection for an Android source tree, not a buildable app/library workspace. The top-level directories (`frameworks/`, `hardware/`, `kernel/`, `packages/`, `system/`) mirror target paths inside an AOSP checkout.
-- Treat each directory containing `*.patch` files as a `git am` series for the matching AOSP project path.
+- This repo is a collection of `git am` patch series for an AOSP checkout, not a buildable workspace. Top-level paths like `frameworks/`, `hardware/`, `kernel/`, `packages/`, and `system/` mirror target project paths inside Android source.
+- Each directory containing `*.patch` files is an independent series for the matching AOSP project.
 
-## Canonical Workflow
-- Apply all patch series from the root of the Android source tree with `./fuck-bpf/apply.sh --mb`.
-- Apply one component manually from the matching AOSP project with `git am /path/to/fuck-bpf/<component>/*.patch`.
-- Keep patch filenames zero-padded and ordered. `apply.sh` applies each directory via shell glob order: `git am $LOCALDIR/$mb/*.patch -3`.
+## Workflow
+- Run `./fuck-bpf/apply.sh --mb` from the root of the Android source tree. `apply.sh` uses the caller's current directory as the AOSP root.
+- To apply one series manually, run `git am -3 /path/to/fuck-bpf/<project>/*.patch` from the matching project inside the AOSP checkout.
+- `apply.sh` applies patches in shell-glob order, so keep numeric prefixes zero-padded and strictly increasing within a directory.
 
 ## Critical Gotcha
-- `apply.sh` does **not** apply patches unless the first arg is exactly `--mb`.
-- Running `apply.sh` with no args, or any arg other than `--mb`, triggers the cleanup branch: for every patch-bearing project it runs `git am --abort`, `git reset --hard`, and `git clean -fd` in the corresponding AOSP checkout path.
-- Because of that cleanup logic, never tell users to "try `./apply.sh`" casually, and do not run it against a populated source tree unless destructive cleanup is intended.
+- `apply.sh` only applies patches when the first argument is exactly `--mb`.
+- Any other invocation takes the cleanup branch: for every patch-bearing project it runs `git am --abort`, `git reset --hard`, and `git clean -fd` in the corresponding AOSP path.
+- Never suggest or run `./apply.sh` casually against a populated tree unless destructive cleanup is intended.
 
-## Verified Coverage
-- Current patch roots: `frameworks/native`, `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, `system/vold`.
-- `packages/modules/Connectivity` and `system/bpf` are multi-patch series; preserve numbering and series order when editing or adding patches.
+## Patch Conventions
+- Current patch-bearing project paths are `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, and `system/vold`.
+- Multi-patch series currently exist in `kernel/configs`, `packages/modules/Connectivity`, `system/bpf`, `system/core`, and `system/netd`; preserve series order when editing or inserting patches.
+- `.pre-commit-config.yaml` enforces patch-specific rules: every patch must keep the mbox footer (`-- `), end with a trailing newline, avoid creating/modifying `*.patch` files inside the diff, and keep numbering increasing per directory.
 
-## Validation
-- There is no repo-local build, test, lint, CI, or formatter config to run here.
-- Practical verification in this repo is limited to checking patch formatting and ensuring each series applies cleanly with `git am` against the intended Android tree.
-- Trust `apply.sh` and the patch files over README prose if they conflict.
+## Verification
+- There is no repo-local build or test suite here; practical verification is patch hygiene plus application against a real AOSP tree.
+- For changed patches, run `pre-commit run --files path/to/changed.patch` or `pre-commit run --all-files`.
+- If docs and scripts disagree, trust `apply.sh` and `.pre-commit-config.yaml` over README prose.

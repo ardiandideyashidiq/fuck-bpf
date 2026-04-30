@@ -1,30 +1,36 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-MB=$1
+MODE="${1:-}"
+AOSP_ROOT="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-USE_PATCH=0
-if [ "$MB" != "--mb" ]; then
-    USE_PATCH=1
-fi
+list_patch_dirs() {
+    find "$SCRIPT_DIR" -name '*.patch' -exec dirname {} \; | sed "s#^$SCRIPT_DIR/##" | sort -u
+}
 
-OLD_WD=`pwd`
-LOCALDIR=`cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd`
-cd $LOCALDIR
+cleanup_series() {
+    local series_dir="$1"
 
-if [ "$USE_PATCH" == "1" ]; then
-    MBS=$(find . -name *.patch -exec dirname {} \; |sort -u)
-    for mb in $MBS; do
-        cd $OLD_WD/$mb
-        git am --abort > /dev/null 2>&1
-        git reset --hard > /dev/null 2>&1
-        git clean -fd > /dev/null 2>&1
-    done
-else
-    MBS=$(find . -name *.patch -exec dirname {} \; |sort -u)
-    for mb in $MBS; do
-        cd $OLD_WD/$mb
-        git am $LOCALDIR/$mb/*.patch -3
-    done
-fi
+    cd "$AOSP_ROOT/$series_dir"
+    git am --abort > /dev/null 2>&1 || true
+    git reset --hard > /dev/null 2>&1
+    git clean -fd > /dev/null 2>&1
+}
+
+apply_series() {
+    local series_dir="$1"
+
+    cd "$AOSP_ROOT/$series_dir"
+    git am -3 "$SCRIPT_DIR/$series_dir"/*.patch
+}
+
+while IFS= read -r series_dir; do
+    [ -n "$series_dir" ] || continue
+    if [ "$MODE" = "--mb" ]; then
+        apply_series "$series_dir"
+    else
+        cleanup_series "$series_dir"
+    fi
+done < <(list_patch_dirs)
