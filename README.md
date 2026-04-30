@@ -64,6 +64,22 @@ To verify that all target repos are clean after applying patches, run:
 
 Verify checks each target repo for a clean working tree and confirms that no `git am` session is still in progress.
 
+If you intentionally want the old destructive reset/abort behavior, run:
+```
+./fuck-bpf/apply.sh --cleanup
+```
+
+Any missing or unknown mode now prints usage and exits non-zero instead of cleaning repos implicitly.
+
+To validate the patch series against a synced source tree, run:
+```bash
+FUCK_BPF_SOURCE_ROOT=/path/to/android/source ./scripts/validate-patches.sh
+```
+
+This replays every patch series in temporary worktrees under the synced source tree and fails if any series no longer applies cleanly.
+
+The same validation is available in pre-commit when `FUCK_BPF_SOURCE_ROOT` is set.
+
 ### Manual Application
 Patches can be applied manually to specific components:
 

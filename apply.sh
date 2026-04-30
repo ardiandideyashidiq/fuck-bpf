@@ -6,6 +6,17 @@ MODE="${1:-}"
 AOSP_ROOT="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+usage() {
+    cat <<EOF
+Usage: ./fuck-bpf/apply.sh [--mb|--dry-run|--verify|--cleanup]
+
+  --mb       Apply all patch series
+  --dry-run  Check whether all series would apply cleanly
+  --verify   Check target repos for clean worktrees and am state
+  --cleanup  Abort am sessions and reset target repos destructively
+EOF
+}
+
 list_patch_dirs() {
     find "$SCRIPT_DIR" -name '*.patch' -exec dirname {} \; | sed "s#^$SCRIPT_DIR/##" | sort -u
 }
@@ -99,7 +110,10 @@ while IFS= read -r series_dir; do
         dry_run_series "$series_dir"
     elif [ "$MODE" = "--verify" ]; then
         verify_series "$series_dir"
-    else
+    elif [ "$MODE" = "--cleanup" ]; then
         cleanup_series "$series_dir"
+    else
+        usage >&2
+        exit 1
     fi
 done < <(list_patch_dirs)

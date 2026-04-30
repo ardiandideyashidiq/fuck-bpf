@@ -72,3 +72,20 @@ repos:
       exit "$exit_code"
     language: system
     files: '\.patch$'
+
+  - id: patch-synced-source-apply
+    name: validate patches against synced source tree
+    entry: bash
+    args:
+    - -c
+    - |
+      if [ $# -eq 0 ]; then
+        exit 0
+      fi
+      if [ -z "${FUCK_BPF_SOURCE_ROOT:-}" ]; then
+        echo "[SKIPPED] set FUCK_BPF_SOURCE_ROOT to validate patch replay against a synced source tree"
+        exit 0
+      fi
+      ./scripts/validate-patches.sh "$FUCK_BPF_SOURCE_ROOT"
+    language: system
+    files: '\.patch$'
