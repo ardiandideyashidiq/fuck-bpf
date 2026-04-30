@@ -1,0 +1,41 @@
+From 71ce335c5ec150c4b26ca35b24fab2743a10aa2c Mon Sep 17 00:00:00 2001
+From: OpenCode <opencode@example.com>
+Date: Thu, 30 Apr 2026 08:47:35 +0700
+Subject: [PATCH] bpfloader: continue after vendor load failures
+
+Change-Id: I9e6d5c7091be430aaa2e17ad546fc18d4e30608e
+---
+ loader/Loader.cpp   | 3 +--
+ loader/bpfloader.rs | 2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/loader/Loader.cpp b/loader/Loader.cpp
+index 6303d30..ee56660 100644
+--- a/loader/Loader.cpp
++++ b/loader/Loader.cpp
+@@ -688,8 +688,7 @@ void vendorBpfLoader() {
+         ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+               "problems or startup script race.");
+-        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-        return;
++        ALOGE("--- CONTINUING TO netbpfload done FOR DEGRADED BOOT ---");
+     }
+ 
+     const char* args[] = {"/apex/com.android.tethering/bin/netbpfload", "done", NULL};
+diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
+index ac1ca3b..477cfe2 100644
+--- a/loader/bpfloader.rs
++++ b/loader/bpfloader.rs
+@@ -657,7 +657,7 @@ fn main() {
+     info!("Loading legacy BPF progs");
+ 
+     if let Err(e) = create_dir(Path::new("/sys/fs/bpf/vendor")) {
+-        panic!("Error during mkdir /sys/fs/bpf/vendor: {e}");
++        error!("Failed to mkdir /sys/fs/bpf/vendor: {e} -- continuing anyway");
+     };
+ 
+     // SAFETY: Linking in the existing legacy vendor bpfloader functionality.
+-- 
+2.54.0
+

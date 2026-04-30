@@ -15,7 +15,7 @@
 - Never suggest or run `./apply.sh` casually against a populated tree unless destructive cleanup is intended.
 
 ## Patch Conventions
-- Current patch-bearing project paths are `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, and `system/vold`.
+- Current patch-bearing project paths are `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, `system/sepolicy`, and `system/vold`.
 - Multi-patch series currently exist in `kernel/configs`, `packages/modules/Connectivity`, `system/bpf`, `system/core`, and `system/netd`; preserve series order when editing or inserting patches.
 - `.pre-commit-config.yaml` enforces patch-specific rules: every patch must keep the mbox footer (`-- `), end with a trailing newline, avoid creating/modifying `*.patch` files inside the diff, and keep numbering increasing per directory.
 
