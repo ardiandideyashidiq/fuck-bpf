@@ -48,6 +48,15 @@ Support has been added for all kernel versions: **4.4, 4.9, 4.14, and 4.19**. As
 ./fuck-bpf/apply.sh --mb
 ```
 
+`apply.sh --mb` now applies patches one by one and skips patches whose changes are already present in the target tree.
+
+To preview what will happen without modifying the source tree, run:
+```
+./fuck-bpf/apply.sh --dry-run
+```
+
+Dry-run reports whether each patch would apply cleanly, would be skipped as a duplicate, or would fail.
+
 ### Manual Application
 Patches can be applied manually to specific components:
 

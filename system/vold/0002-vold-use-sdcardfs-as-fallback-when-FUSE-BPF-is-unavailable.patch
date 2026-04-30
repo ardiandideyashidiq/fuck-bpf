@@ -1,4 +1,4 @@
-From 008f5bea1e21291a0a6264f308f80ad8d99ce699 Mon Sep 17 00:00:00 2001
+From 78a8de088fdb3178a457f5ca9e81aa4be93b5276 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 14:57:07 +0700
 Subject: [PATCH] vold: use sdcardfs as fallback when FUSE BPF is unavailable
@@ -37,4 +37,3 @@ index 2df35cb..0613b9a 100644
  
 -- 
 2.54.0
-

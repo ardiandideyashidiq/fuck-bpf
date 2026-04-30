@@ -1,4 +1,4 @@
-From c55a6071dc884e54c480c46e2edb7f606ec4a093 Mon Sep 17 00:00:00 2001
+From 76237e34d861429985add12eac1faedbf1a0b940 Mon Sep 17 00:00:00 2001
 From: LuK1337 <priv.luk@gmail.com>
 Date: Sun, 22 Oct 2023 10:26:25 +0200
 Subject: [PATCH 3/6] Restore q/android-4.9
@@ -635,5 +635,4 @@ index 0000000..50c9def
 +CONFIG_USB_USBNET=y
 +CONFIG_VFAT_FS=y
 -- 
-2.46.0
-
+2.54.0

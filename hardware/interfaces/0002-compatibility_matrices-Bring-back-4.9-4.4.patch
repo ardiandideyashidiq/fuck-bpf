@@ -1,4 +1,4 @@
-From 6c08c646a92fb60cb1ccd6b14550b7481ec66e18 Mon Sep 17 00:00:00 2001
+From 5353880a282e9c963ead72d4536e09b3ff5d6516 Mon Sep 17 00:00:00 2001
 From: techyminati <techyminati@outlook.com>
 Date: Sun, 8 Mar 2026 12:51:53 +0530
 Subject: [PATCH] compatibility_matrices: Bring back 4.9/4.4
@@ -10,7 +10,7 @@ Signed-off-by: techyminati <techyminati@outlook.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/compatibility_matrices/Android.bp b/compatibility_matrices/Android.bp
-index 1bbf49687b..a1c2323e88 100644
+index 1bbf496..a1c2323 100644
 --- a/compatibility_matrices/Android.bp
 +++ b/compatibility_matrices/Android.bp
 @@ -94,6 +94,10 @@ vintf_compatibility_matrix {
@@ -33,5 +33,4 @@ index 1bbf49687b..a1c2323e88 100644
          "kernel_config_s_4.19",
          "kernel_config_s_5.4",
 -- 
-2.46.0
-
+2.54.0

@@ -1,4 +1,4 @@
-From 9a996e048362245002b55dc52d954a8282a7e228 Mon Sep 17 00:00:00 2001
+From c9a7aaae879f5ce69a23deebbf1bec08ef2e810c Mon Sep 17 00:00:00 2001
 From: Aaron Kling <webgeek1234@gmail.com>
 Date: Mon, 13 May 2024 13:02:27 -0500
 Subject: [PATCH 4/6] Lower q/android-4.9 requirements
@@ -55,5 +55,4 @@ index 795cde5..136c2c2 100644
  CONFIG_XFRM_STATISTICS=y
  CONFIG_XFRM_USER=y
 -- 
-2.46.0
-
+2.54.0

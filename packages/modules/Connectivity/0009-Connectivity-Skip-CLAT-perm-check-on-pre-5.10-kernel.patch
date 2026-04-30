@@ -1,4 +1,4 @@
-From 02de918438abf28dc7227b7cb0a995d57bff10da Mon Sep 17 00:00:00 2001
+From 65eff3ba12fbce02673dffb50a1ea80749ea37ba Mon Sep 17 00:00:00 2001
 From: Aryan Sinha <techyminati@outlook.com>
 Date: Sat, 21 Feb 2026 10:25:40 +0100
 Subject: [PATCH] Connectivity: Skip CLAT perm check on pre-5.10 kernels
@@ -24,7 +24,7 @@ successfully without full BPF/CLAT support.
  1 file changed, 3 insertions(+), 9 deletions(-)
 
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-index 437e78fafda..9ae94fa2648 100644
+index 437e78fafd..9ae94fa264 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 @@ -91,11 +91,6 @@ static void verifyPerms(const char * const path,
@@ -54,5 +54,4 @@ index 437e78fafda..9ae94fa2648 100644
      }
  
 -- 
-2.34.1
-
+2.54.0

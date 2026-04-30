@@ -1,15 +1,15 @@
-From 85437f5601dc5b3a88924d1c0def7827d968c9cb Mon Sep 17 00:00:00 2001
+From deb2878c59e58c386095b47c2367ac3644cb3194 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 14:57:07 +0700
 Subject: [PATCH] bpfloader: Hardcode kernel ver as k5.10
 
 Change-Id: Ic7ceb5587b292185bae36fedb2abbcf987e6b631
 ---
- loader/bpfloader.rs | 21 ++-------------------
- 1 file changed, 2 insertions(+), 19 deletions(-)
+ loader/bpfloader.rs | 24 +++---------------------
+ 1 file changed, 3 insertions(+), 21 deletions(-)
 
 diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
-index 34e9b68..4d3e248 100644
+index 34e9b68..ab4c456 100644
 --- a/loader/bpfloader.rs
 +++ b/loader/bpfloader.rs
 @@ -24,14 +24,9 @@ use libbpf_rs::{
@@ -28,7 +28,7 @@ index 34e9b68..4d3e248 100644
  use std::{
      cmp::max,
      env, fs,
-@@ -430,20 +426,7 @@ fn kernel_version() -> Result<u32, anyhow::Error> {
+@@ -430,21 +425,8 @@ fn kernel_version() -> Result<u32, anyhow::Error> {
          let (major, minor, sub) = parse_release(&kver_override);
          return Ok(kver(major, minor, sub));
      }
@@ -50,7 +50,7 @@ index 34e9b68..4d3e248 100644
 +    // Hardcode kernel version to 5.10.209.
 +    Ok(kver(5, 10, 209))
  }
-
+ 
  fn set_skip_loading(
---
+-- 
 2.54.0

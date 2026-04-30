@@ -1,4 +1,4 @@
-From 0ec38d8d26c8a692318e9cdec83d8c1294e3b680 Mon Sep 17 00:00:00 2001
+From 8eac18b94509ecabce362315f6c0162d1a6fca02 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 15:00:29 +0700
 Subject: [PATCH] NetBpfLoad: treat non-optional program load failures as
@@ -25,4 +25,3 @@ index 716e0c81b1..8e7a1925c9 100644
  
 -- 
 2.54.0
-

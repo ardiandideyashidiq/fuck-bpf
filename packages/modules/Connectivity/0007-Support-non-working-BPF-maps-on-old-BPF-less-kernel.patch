@@ -1,4 +1,4 @@
-From af557443062c8d8da8b36b339b7a6c792ffc77b7 Mon Sep 17 00:00:00 2001
+From 3fda6a89f878f0e08a44c90f0b1394593d964287 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 14:57:07 +0700
 Subject: [PATCH] Support non-working BPF maps on old BPF-less kernel
@@ -20,24 +20,24 @@ index 8ef564dbf1..fb900e9231 100644
 @@ -44,7 +44,7 @@ using std::function;
  #define BPFMAP_VERBOSE_ABORT
  #endif
-
+ 
 -[[noreturn]] __attribute__((__format__(__printf__, 2, 3))) static inline
 +__attribute__((__format__(__printf__, 2, 3))) static inline
  void Abort(int __unused error, const char* __unused fmt, ...) {
  #ifdef BPFMAP_VERBOSE_ABORT
      va_list va;
 @@ -58,8 +58,6 @@ void Abort(int __unused error, const char* __unused fmt, ...) {
-
+ 
      va_end(va);
  #endif
 -
 -    abort();
  }
-
+ 
  // We care about enabling SSO on 64-bit platforms
 @@ -125,9 +123,22 @@ class BpfMapRO {
      }
-
+ 
    public:
 +    bool isOk(bool writable = false) const {
 +        if (!mMapFd.ok()) return false;
@@ -57,7 +57,7 @@ index 8ef564dbf1..fb900e9231 100644
          mMapFd.reset(mapRetrieveRO(pathname));
 -        abortOnMismatch(/* writable */ false);
      }
-
+ 
      Result<Key> getFirstKey() const {
 diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
 index d4d3aa3424..716e0c81b1 100644
@@ -65,10 +65,10 @@ index d4d3aa3424..716e0c81b1 100644
 +++ b/bpf/loader/NetBpfLoad.cpp
 @@ -1580,6 +1580,7 @@ static int doLoad(char** argv, char * const envp[]) {
      const bool runningAsRoot = !getuid();  // true iff U QPR3 or V+
-
+ 
      const int first_api_level = GetIntProperty("ro.board.first_api_level", api_level_full / 100);
 +    bool failed = false;
-
+ 
      // last in U QPR2 beta1
      const bool has_platform_bpfloader_rc = exists("/system/etc/init/bpfloader.rc");
 @@ -1637,24 +1638,24 @@ static int doLoad(char** argv, char * const envp[]) {
@@ -78,27 +78,27 @@ index d4d3aa3424..716e0c81b1 100644
 -        if (!isTV()) return 8;
 +        failed = true;
      }
-
+ 
      if (isKernel32Bit() && isAtLeast25Q2) {
          ALOGE("Android 25Q2 requires 64 bit kernel.");
 -        return 9;
 +        failed = true;
      }
-
+ 
      // 6.6 is highest version supported by Android V, so this is effectively W+ (sdk=36+)
      if (isKernel32Bit() && isAtLeastKernelVersion(6, 7)) {
          ALOGE("Android platform with 32 bit kernel version >= 6.7.0 is unsupported");
 -        return 10;
 +        failed = true;
      }
-
+ 
      // Various known ABI layout issues, particularly wrt. bpf and ipsec/xfrm.
      if (isAtLeastV && isKernel32Bit() && isX86()) {
          ALOGE("Android V requires X86 kernel to be 64-bit.");
 -        if (!isTV()) return 11;
 +        failed = true;
      }
-
+ 
      if (isAtLeastV) {
 @@ -1706,10 +1707,10 @@ static int doLoad(char** argv, char * const envp[]) {
              ALOGW("[Arm KernelUpRev] 32-bit userspace unsupported on 6.2+ kernels.");
@@ -112,7 +112,7 @@ index d4d3aa3424..716e0c81b1 100644
 +            failed = true;
          }
      }
-
+ 
 @@ -1723,32 +1724,32 @@ static int doLoad(char** argv, char * const envp[]) {
      if (isUserspace32bit() && isAtLeastKernelVersion(6, 13)) {
          // due to previous check only reachable on Arm && (<=T kernel uprev || TV || Wear)
@@ -120,7 +120,7 @@ index d4d3aa3424..716e0c81b1 100644
 -        return 14;
 +        failed = true;
      }
-
+ 
      if (isAtLeast25Q2) {
          FILE * f = fopen("/system/etc/init/netbpfload.rc", "re");
          if (!f) {
@@ -145,7 +145,7 @@ index d4d3aa3424..716e0c81b1 100644
 +        if (b < 0 || b > 4) failed = true;
 +        if (c < 0) failed = true;
      }
-
+ 
      // Ensure we can determine the Android build type.
      if (!isEng() && !isUser() && !isUserdebug()) {
          ALOGE("Failed to determine the build type: got %s, want 'eng', 'user', or 'userdebug'",
@@ -153,7 +153,7 @@ index d4d3aa3424..716e0c81b1 100644
 -        return 22;
 +        failed = true;
      }
-
+ 
      if (runningAsRoot) {
 @@ -1758,8 +1759,9 @@ static int doLoad(char** argv, char * const envp[]) {
          // but we need 0 (enabled)
@@ -165,7 +165,7 @@ index d4d3aa3424..716e0c81b1 100644
 +            failed = true;
 +        }
      }
-
+ 
      if (isAtLeastU) {
 @@ -1774,31 +1776,29 @@ static int doLoad(char** argv, char * const envp[]) {
          //  kernel does not have CONFIG_BPF_JIT=y)
@@ -174,7 +174,7 @@ index d4d3aa3424..716e0c81b1 100644
 -        if (!writeFile("/proc/sys/net/core/bpf_jit_enable", "1\n") &&
 -            android::bpf::isAtLeastKernelVersion(4, 14, 0)) return 24;
 +        if (!writeFile("/proc/sys/net/core/bpf_jit_enable", "1\n")) failed = true;
-
+ 
          // Enable JIT kallsyms export for privileged users only
          // (Note: this (open) will fail with ENOENT 'No such file or directory' if
          //  kernel does not have CONFIG_HAVE_EBPF_JIT=y)
@@ -182,7 +182,7 @@ index d4d3aa3424..716e0c81b1 100644
 -            android::bpf::isAtLeastKernelVersion(4, 14, 0)) return 25;
 +        if (!writeFile("/proc/sys/net/core/bpf_jit_kallsyms", "1\n")) failed = true;
      }
-
+ 
      // Create all the pin subdirectories
      // (this must be done first to allow create_location and pin_subdir functionality,
      //  which could otherwise fail with ENOENT during object pinning or renaming,
@@ -192,7 +192,7 @@ index d4d3aa3424..716e0c81b1 100644
      // This is technically T+ but S also needs it for the 'mainline_done' file.
 -    if (!createDir("/sys/fs/bpf/netd_shared")) return 27;
 +    if (!createDir("/sys/fs/bpf/netd_shared")) failed = true;
-
+ 
      if (isAtLeastT) {
 -        if (!createDir("/sys/fs/bpf/netd_readonly")) return 28;
 -        if (!createDir("/sys/fs/bpf/net_shared")) return 29;
@@ -200,12 +200,12 @@ index d4d3aa3424..716e0c81b1 100644
 +        if (!createDir("/sys/fs/bpf/netd_readonly")) failed = true;
 +        if (!createDir("/sys/fs/bpf/net_shared")) failed = true;
 +        if (!createDir("/sys/fs/bpf/net_private")) failed = true;
-
+ 
          // This one is primarily meant for triggering genfscon rules.
 -        if (!createDir("/sys/fs/bpf/loader")) return 31;
 +        if (!createDir("/sys/fs/bpf/loader")) failed = true;
      }
-
+ 
      if (runningAsRoot) {  // implies U QPR3+ and kernel 4.14+
 @@ -1807,13 +1807,13 @@ static int doLoad(char** argv, char * const envp[]) {
          uint32_t progId = bpfGetNextProgId(0);  // expect 0 with errno == ENOENT
@@ -251,7 +251,7 @@ index d4d3aa3424..716e0c81b1 100644
      } else {  // implies S/T with 4.9 kernel
          // nothing we can do.
      }
-
+ 
      // Load all ELF objects, create programs and maps, and pin them
 -    if (!loadAllObjects()) {
 +    if (!loadAllObjects() || failed) {
@@ -264,7 +264,7 @@ index d4d3aa3424..716e0c81b1 100644
 -        return 38;
 +        failed = true;
      }
-
+ 
      {
 @@ -1870,33 +1869,35 @@ static int doLoad(char** argv, char * const envp[]) {
          int value = 123;
@@ -273,7 +273,7 @@ index d4d3aa3424..716e0c81b1 100644
 -            if (isAtLeastT) return 39;
 +            if (isAtLeastT) failed = true;
          }
-
+ 
          const char* const kernel_bugs_map_path = "/sys/fs/bpf/tethering/map_kernel_bugs";
          int ret = bpfFdPin(map, kernel_bugs_map_path);
          if (ret) {
@@ -281,7 +281,7 @@ index d4d3aa3424..716e0c81b1 100644
 -            return 40;
 +            failed = true;
          }
-
+ 
 -        ret = chmod(kernel_bugs_map_path, 0440);
 -        if (ret) {
 -            ALOGE("chmod %s 0440 -> %d [%d:%s]", kernel_bugs_map_path,
@@ -295,7 +295,7 @@ index d4d3aa3424..716e0c81b1 100644
 +                      ret, errno, strerror(errno));
 +                failed = true;
 +            }
-
+ 
 -        ret = chown(kernel_bugs_map_path, AID_ROOT, AID_NETWORK_STACK);
 -        if (ret) {
 -            ALOGE("chown %s %d %d -> %d [%d:%s]", kernel_bugs_map_path, AID_ROOT,
@@ -309,11 +309,11 @@ index d4d3aa3424..716e0c81b1 100644
 +            }
          }
      }
-
+ 
      // leave a flag that we're done
 -    if (!createDir("/sys/fs/bpf/netd_shared/mainline_done")) return 43;
 +    if (!createDir("/sys/fs/bpf/netd_shared/mainline_done")) failed = true;
-
+ 
      // platform bpfloader will only succeed when run as root
      if (!runningAsRoot) {
 diff --git a/framework/src/android/net/BpfNetMapsUtils.java b/framework/src/android/net/BpfNetMapsUtils.java
@@ -325,7 +325,7 @@ index 7673ed81a9..9e81e50056 100644
              final IBpfMap<S32, U32> configurationMap, final int chain) {
          throwIfPreT("isChainEnabled is not available on pre-T devices");
 +        if (configurationMap == null) return false;
-
+ 
          final long match = getMatchByFirewallChain(chain);
          try {
 @@ -237,6 +238,7 @@ public class BpfNetMapsUtils {
@@ -333,7 +333,7 @@ index 7673ed81a9..9e81e50056 100644
              final int chain, final int uid) {
          throwIfPreT("getUidRule is not available on pre-T devices");
 +        if (uidOwnerMap == null) return FIREWALL_RULE_ALLOW;
-
+ 
          final long match = getMatchByFirewallChain(chain);
          final boolean isAllowList = isFirewallAllowList(chain);
 @@ -335,6 +337,7 @@ public class BpfNetMapsUtils {
@@ -341,7 +341,7 @@ index 7673ed81a9..9e81e50056 100644
      ) {
          throwIfPreT("isUidBlockedByFirewallChains is not available on pre-T devices");
 +        if (configurationMap == null) return false;
-
+ 
          final int blockedReasons = getUidNetworkingBlockedReasons(
                  uid,
 @@ -363,6 +366,7 @@ public class BpfNetMapsUtils {
@@ -349,7 +349,7 @@ index 7673ed81a9..9e81e50056 100644
      public static boolean getDataSaverEnabled(IBpfMap<S32, U8> dataSaverEnabledMap) {
          throwIfPreT("getDataSaverEnabled is not available on pre-T devices");
 +        if (dataSaverEnabledMap == null) return false;
-
+ 
          try {
              return dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY).val == DATA_SAVER_ENABLED;
 diff --git a/framework/src/android/net/NetworkStackBpfNetMaps.java b/framework/src/android/net/NetworkStackBpfNetMaps.java
@@ -364,7 +364,7 @@ index b7c4e34fad..750490ad24 100644
 +                return null;
              }
          }
-
+ 
 @@ -107,7 +107,7 @@ public class NetworkStackBpfNetMaps {
                  return new BpfMap<>(UID_OWNER_MAP_PATH, BpfMap.BPF_F_RDONLY,
                          S32.class, UidOwnerValue.class);
@@ -373,7 +373,7 @@ index b7c4e34fad..750490ad24 100644
 +                return null;
              }
          }
-
+ 
 @@ -117,7 +117,7 @@ public class NetworkStackBpfNetMaps {
                  return new BpfMap<>(DATA_SAVER_ENABLED_MAP_PATH, BpfMap.BPF_F_RDONLY, S32.class,
                          U8.class);
@@ -415,7 +415,7 @@ index 7f56210b5c..d479f92898 100644
 +    private IBpfMap<StatsMapKey, StatsMapValue> mStatsMapB = null;
 +    private IBpfMap<S32, StatsMapValue> mAppUidStatsMap = null;
 +    private IBpfMap<S32, StatsMapValue> mIfaceStatsMap = null;
-
+ 
      /** Data layer operation counters for splicing into other structures. */
      private NetworkStats mUidOperations = new NetworkStats(0L, 10);
 @@ -676,12 +676,16 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
@@ -468,7 +468,7 @@ index b81ce24b7f..57d298cf37 100644
          mDeps = deps;
 @@ -478,6 +482,7 @@ public class BpfNetMaps {
      }
-
+ 
      private void removeRule(final int uid, final long match, final String caller) {
 +        if (sUidOwnerMap == null) return;
          try {
@@ -479,7 +479,7 @@ index b81ce24b7f..57d298cf37 100644
                      "Non-interface match must have zero interface index");
          }
 +        if (sUidOwnerMap == null) return;
-
+ 
          try {
              synchronized (sUidOwnerMap) {
 @@ -550,6 +556,7 @@ public class BpfNetMaps {
@@ -487,7 +487,7 @@ index b81ce24b7f..57d298cf37 100644
      public void setChildChain(final int childChain, final boolean enable) {
          throwIfPreT("setChildChain is not available on pre-T devices");
 +        if (sConfigurationMap == null) return;
-
+ 
          final long match = getMatchByFirewallChain(childChain);
          try {
 @@ -599,6 +606,7 @@ public class BpfNetMaps {
@@ -495,7 +495,7 @@ index b81ce24b7f..57d298cf37 100644
      public void replaceUidChain(final int chain, final int[] uids) {
          throwIfPreT("replaceUidChain is not available on pre-T devices");
 +        if (sUidOwnerMap == null) return;
-
+ 
          final long match;
          try {
 @@ -679,6 +687,7 @@ public class BpfNetMaps {
@@ -511,7 +511,7 @@ index b81ce24b7f..57d298cf37 100644
      public void swapActiveStatsMap() {
          throwIfPreT("swapActiveStatsMap is not available on pre-T devices");
 +        if (sConfigurationMap == null) return;
-
+ 
          try {
              synchronized (sCurrentStatsMapConfigLock) {
 @@ -876,6 +886,7 @@ public class BpfNetMaps {
@@ -519,7 +519,7 @@ index b81ce24b7f..57d298cf37 100644
              return;
          }
 +        if (sUidPermissionMap == null) return;
-
+ 
          // Remove the entry if package is uninstalled or uid has only INTERNET permission.
          if (permissions == TRAFFIC_PERMISSION_UNINSTALLED
 @@ -1095,6 +1106,7 @@ public class BpfNetMaps {
@@ -527,7 +527,7 @@ index b81ce24b7f..57d298cf37 100644
      public void setDataSaverEnabled(boolean enable) {
          throwIfPreT("setDataSaverEnabled is not available on pre-T devices");
 +        if (sDataSaverEnabledMap == null) return;
-
+ 
          try {
              final short config = enable ? DATA_SAVER_ENABLED : DATA_SAVER_DISABLED;
 @@ -1114,6 +1126,7 @@ public class BpfNetMaps {
@@ -547,7 +547,7 @@ index b81ce24b7f..57d298cf37 100644
              sIngressDiscardMap.deleteEntry(new IngressDiscardKey(address));
          } catch (ErrnoException e) {
 @@ -1199,6 +1213,7 @@ public class BpfNetMaps {
-
+ 
      private <K extends Struct, V extends Struct> int getMapSize(IBpfMap<K, V> map)
              throws ErrnoException {
 +        if (map == null) return 0;
@@ -555,7 +555,7 @@ index b81ce24b7f..57d298cf37 100644
          // deletion. netd and skDestroyListener could delete CookieTagMap entry concurrently.
          // So using Set to count the number of entry in the map.
 @@ -1251,6 +1266,7 @@ public class BpfNetMaps {
-
+ 
      @RequiresApi(Build.VERSION_CODES.TIRAMISU)
      private void dumpOwnerMatchConfig(final IndentingPrintWriter pw) {
 +        if (sConfigurationMap == null) return;
@@ -564,7 +564,7 @@ index b81ce24b7f..57d298cf37 100644
              pw.println("current ownerMatch configuration: " + match + " " + matchToString(match));
 @@ -1260,6 +1276,7 @@ public class BpfNetMaps {
      }
-
+ 
      private void dumpCurrentStatsMapConfig(final IndentingPrintWriter pw) {
 +        if (sConfigurationMap == null) return;
          try {
@@ -572,12 +572,11 @@ index b81ce24b7f..57d298cf37 100644
              final String currentStatsMap =
 @@ -1271,6 +1288,7 @@ public class BpfNetMaps {
      }
-
+ 
      private void dumpDataSaverConfig(final IndentingPrintWriter pw) {
 +        if (sDataSaverEnabledMap == null) return;
          try {
              final short config = sDataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY).val;
              // Any non-zero value converted from short to boolean is true by convention.
---
+-- 
 2.54.0
-

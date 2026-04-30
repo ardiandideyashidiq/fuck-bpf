@@ -1,4 +1,4 @@
-From 843d580ac9b8eab4c6f5b259854ddb3a05f7b2c3 Mon Sep 17 00:00:00 2001
+From e182260a2e6f84c59191806bdd9159bd9c76b5df Mon Sep 17 00:00:00 2001
 From: techyminati <techyminati@outlook.com>
 Date: Mon, 9 Mar 2026 23:05:29 +0530
 Subject: [PATCH] Revert "Remove old Android R kernel configs"
@@ -1301,5 +1301,4 @@ index 0000000..71b51bf
 +#  KEEP ALPHABETICALLY SORTED
 +# CONFIG_DEBUG_FS is not set
 -- 
-2.46.0
-
+2.54.0

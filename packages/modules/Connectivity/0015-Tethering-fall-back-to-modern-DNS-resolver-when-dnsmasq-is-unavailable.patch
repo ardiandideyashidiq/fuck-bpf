@@ -1,8 +1,8 @@
-From 89b06f0f98953307be39da08bfbcef1dd207f019 Mon Sep 17 00:00:00 2001
+From 4dcd68b20fa9c57b6dd6a2a440eccca154df88a5 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 15:00:44 +0700
 Subject: [PATCH] Tethering: fall back to modern DNS resolver when dnsmasq is
- unavailable
+ dnsmasq is unavailable
 
 ---
  .../src/com/android/networkstack/tethering/Tethering.java   | 6 +++++-
@@ -27,4 +27,3 @@ index 722e81c2c4..88ca65816c 100644
                      transitionTo(mStartTetheringErrorState);
 -- 
 2.54.0
-

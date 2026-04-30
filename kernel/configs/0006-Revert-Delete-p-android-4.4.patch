@@ -1,4 +1,4 @@
-From 2c483dcf7ab9dd9437e9c80e955563e0db2b3303 Mon Sep 17 00:00:00 2001
+From e17513eb7d75c287b24eb45f128c4c4594c138f5 Mon Sep 17 00:00:00 2001
 From: Bruno Martins <bgcngm@gmail.com>
 Date: Wed, 1 Nov 2023 23:47:30 +0000
 Subject: [PATCH 6/6] Revert "Delete p/android-4.4."
@@ -422,5 +422,4 @@ index 0000000..b407d6c
 +CONFIG_USB_USBNET=y
 +CONFIG_VFAT_FS=y
 -- 
-2.46.0
-
+2.54.0

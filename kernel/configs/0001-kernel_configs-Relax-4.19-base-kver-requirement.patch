@@ -1,4 +1,4 @@
-From d89853e00eb8cf00f8868e440437b471c0ae6161 Mon Sep 17 00:00:00 2001
+From bca502dbf3adf0d8fa66eecc3c5f60fc986629bb Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 22:57:18 +0700
 Subject: [PATCH] kernel_configs: Lower 4.19 requirements to 4.19.127
@@ -58,4 +58,3 @@ index fa5515b..24e2b47 100644
  		<value type="bool">y</value>
 -- 
 2.54.0
-

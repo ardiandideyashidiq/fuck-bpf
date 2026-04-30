@@ -1,4 +1,4 @@
-From d64d5ca9f510f67f5b7fd14289c36a4cb7338e07 Mon Sep 17 00:00:00 2001
+From ee4cc5e2655175c90cb3fa79fd7f7fb85914d3ff Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Thu, 17 Oct 2024 06:59:48 -0400
 Subject: [PATCH 4/8] Additional bpf prevent-crash
@@ -10,7 +10,7 @@ Subject: [PATCH 4/8] Additional bpf prevent-crash
  3 files changed, 7 insertions(+), 6 deletions(-)
 
 diff --git a/framework/src/android/net/BpfNetMapsUtils.java b/framework/src/android/net/BpfNetMapsUtils.java
-index 1760fa7ec28..7673ed81a93 100644
+index 1760fa7ec2..7673ed81a9 100644
 --- a/framework/src/android/net/BpfNetMapsUtils.java
 +++ b/framework/src/android/net/BpfNetMapsUtils.java
 @@ -267,15 +267,14 @@ public class BpfNetMapsUtils {
@@ -34,7 +34,7 @@ index 1760fa7ec28..7673ed81a93 100644
          final long blockingMatches = (uidRuleConfig & ~uidMatch & sMaskDropIfUnset)
                  | (uidRuleConfig & uidMatch & sMaskDropIfSet);
 diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
-index c82955f44f2..7f56210b5ca 100644
+index c82955f44f..7f56210b5c 100644
 --- a/service-t/src/com/android/server/net/NetworkStatsService.java
 +++ b/service-t/src/com/android/server/net/NetworkStatsService.java
 @@ -3277,7 +3277,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
@@ -48,10 +48,10 @@ index c82955f44f2..7f56210b5ca 100644
      }
  
 diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
-index a96819380c8..3bf8dc3770c 100644
+index 4795d5d7a5..4879362bc2 100644
 --- a/service/src/com/android/server/BpfNetMaps.java
 +++ b/service/src/com/android/server/BpfNetMaps.java
-@@ -1067,6 +1067,7 @@ public class BpfNetMaps {
+@@ -1066,6 +1066,7 @@ public class BpfNetMaps {
      @RequiresApi(Build.VERSION_CODES.TIRAMISU)
      public int getNetPermForUid(final int uid) {
          final int appId = UserHandle.getAppId(uid);
@@ -60,5 +60,4 @@ index a96819380c8..3bf8dc3770c 100644
              // Key of uid permission map is appId
              // TODO: Rename map name
 -- 
-2.34.1
-
+2.54.0
