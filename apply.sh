@@ -19,6 +19,27 @@ cleanup_series() {
     git clean -fd > /dev/null 2>&1
 }
 
+verify_series() {
+    local series_dir="$1"
+    local exit_code=0
+
+    printf '== %s ==\n' "$series_dir"
+
+    if [ -n "$(git -C "$AOSP_ROOT/$series_dir" status --short)" ]; then
+        printf 'working tree not clean\n' >&2
+        exit_code=1
+    fi
+
+    if git -C "$AOSP_ROOT/$series_dir" rev-parse --quiet --verify REBASE_HEAD > /dev/null; then
+        printf 'git am still in progress\n' >&2
+        exit_code=1
+    else
+        printf 'git am clean\n'
+    fi
+
+    return "$exit_code"
+}
+
 apply_series() {
     local series_dir="$1"
     local patch
@@ -76,6 +97,8 @@ while IFS= read -r series_dir; do
         apply_series "$series_dir"
     elif [ "$MODE" = "--dry-run" ]; then
         dry_run_series "$series_dir"
+    elif [ "$MODE" = "--verify" ]; then
+        verify_series "$series_dir"
     else
         cleanup_series "$series_dir"
     fi

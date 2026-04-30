@@ -57,6 +57,13 @@ To preview what will happen without modifying the source tree, run:
 
 Dry-run reports whether each patch would apply cleanly, would be skipped as a duplicate, or would fail.
 
+To verify that all target repos are clean after applying patches, run:
+```
+./fuck-bpf/apply.sh --verify
+```
+
+Verify checks each target repo for a clean working tree and confirms that no `git am` session is still in progress.
+
 ### Manual Application
 Patches can be applied manually to specific components:
 
