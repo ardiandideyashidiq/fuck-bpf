@@ -1,7 +1,7 @@
 # Fuck-BPF aka Android 16 QPR2 BPF Reverts to support <= 4.19 kernels
 
 ![GitHub Stars](https://img.shields.io/github/stars/techyminati/fuck-bpf?style=social)
-![Patches](https://img.shields.io/badge/Patches-31-brightgreen?logo=git)
+![Patches](https://img.shields.io/badge/Patches-30-brightgreen?logo=git)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 ![Kernel Support](https://img.shields.io/badge/Kernel-4.4%20|%204.9%20|%204.14%20|%204.19-green.svg)
 
