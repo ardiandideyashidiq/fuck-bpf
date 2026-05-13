@@ -13,48 +13,34 @@ Previous Trebledroid patch relaxes this requirement for GSI builds, but
 device builds on legacy kernels are also intentionally
 supported in custom ROMs.
 
-Relax the kernel version check unconditionally and return
-early on kernels < 5.10 to avoid the abort while keeping
-CLAT disabled on unsupported systems.
+Move the legacy-kernel guard before any BPF filesystem or
+object verification so devices below 5.10 return before the
+abort path is reached.
 
 This allows devices with older vendor kernels to boot
 successfully without full BPF/CLAT support.
 ---
- ...m_android_server_connectivity_ClatCoordinator.cpp | 12 +++---------
- 1 file changed, 3 insertions(+), 9 deletions(-)
+ ...m_android_server_connectivity_ClatCoordinator.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 index 437e78fafd..9ae94fa264 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-@@ -91,11 +91,6 @@ static void verifyPerms(const char * const path,
+@@ -106,6 +106,13 @@ static void verifyClatPerms() {
+     // failures here are 99% likely to be build problems.
+     V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
+     V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
++    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
++    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
++    if (!bpf::isAtLeastKernelVersion(5, 10, 0)) {
++        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
++        return;
++    }
++
  
- #undef ALOGF
- 
--bool isGsiImage() {
--    // this implementation matches 2 other places in the codebase (same function name too)
--    return !access("/system/system_ext/etc/init/init.gsi.rc", F_OK);
--}
--
- static const char* kClatdDir = "/apex/com.android.tethering/bin/for-system";
- static const char* kClatdBin = "/apex/com.android.tethering/bin/for-system/clatd";
- 
-@@ -108,6 +108,13 @@ static void verifyClatPerms() {
-    // First verify the clatd directory and binary,
-    // since this is built into the apex file system image,
-    // failures here are 99% likely to be build problems.
-    V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
-    V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
-
-    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
-    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
-    if (!bpf::isAtLeastKernelVersion(5, 10, 0)) {
-        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
-        return;
-    }
-
     // Move on to verifying that the bpf programs and maps are as expected.
     // This relies on the kernel and bpfloader.
- 
+
 -- 
 2.54.0
