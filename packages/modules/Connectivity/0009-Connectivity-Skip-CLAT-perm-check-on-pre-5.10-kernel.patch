@@ -39,19 +39,22 @@ index 437e78fafd..9ae94fa264 100644
  static const char* kClatdDir = "/apex/com.android.tethering/bin/for-system";
  static const char* kClatdBin = "/apex/com.android.tethering/bin/for-system/clatd";
  
-@@ -138,10 +133,9 @@ static void verifyClatPerms() {
- #undef V2
- 
-     // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
--    // This is *NOT* supported, but let's allow, at least for now, U+ GSI to boot on them.
--    // (without this hack pixel5 R vendor + U gsi breaks)
--    if (isGsiImage() && !bpf::isAtLeastKernelVersion(5, 10, 0)) {
--        ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
-+    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
-+    if (!bpf::isAtLeastKernelVersion(5, 10, 0)) {
-+        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
-         return;
-     }
+@@ -108,6 +108,13 @@ static void verifyClatPerms() {
+    // First verify the clatd directory and binary,
+    // since this is built into the apex file system image,
+    // failures here are 99% likely to be build problems.
+    V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
+    V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
+
+    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
+    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
+    if (!bpf::isAtLeastKernelVersion(5, 10, 0)) {
+        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
+        return;
+    }
+
+    // Move on to verifying that the bpf programs and maps are as expected.
+    // This relies on the kernel and bpfloader.
  
 -- 
 2.54.0
