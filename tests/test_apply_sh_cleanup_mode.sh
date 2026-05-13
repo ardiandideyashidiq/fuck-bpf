@@ -6,23 +6,46 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-AOSP_ROOT="$TMP_DIR/aosp"
-SERIES_ROOT="$TMP_DIR/fuck-bpf"
-TARGET_DIR="$AOSP_ROOT/demo/project"
+create_fixture() {
+    local name="$1"
+    local aosp_root="$TMP_DIR/$name/aosp"
+    local series_root="$TMP_DIR/$name/fuck-bpf"
+    local target_dir="$aosp_root/demo/project"
+    local patch_dir="$series_root/demo/project"
+
+    mkdir -p "$target_dir" "$patch_dir"
+    cp "$REPO_ROOT/apply.sh" "$series_root/apply.sh"
+
+    git init "$target_dir" >/dev/null
+    printf 'hello\n' > "$target_dir/demo.txt"
+    git -C "$target_dir" add demo.txt
+    git -C "$target_dir" -c user.name='Test User' -c user.email='test@example.com' \
+        commit -m 'base' >/dev/null
+
+    printf '%s\n%s\n%s\n' "$aosp_root" "$series_root" "$target_dir"
+}
+
+create_patch() {
+    local target_dir="$1"
+    local patch_dir="$2"
+    local patch_name="$3"
+    local commit_message="$4"
+    local content="$5"
+
+    printf '%s\n' "$content" > "$target_dir/demo.txt"
+    git -C "$target_dir" add demo.txt
+    git -C "$target_dir" -c user.name='Test User' -c user.email='test@example.com' \
+        commit -m "$commit_message" >/dev/null
+    git -C "$target_dir" format-patch -1 HEAD --stdout > "$patch_dir/$patch_name"
+}
+
+mapfile -t FIXTURE < <(create_fixture "mode-safety")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
 PATCH_DIR="$SERIES_ROOT/demo/project"
 
-mkdir -p "$TARGET_DIR" "$PATCH_DIR"
-cp "$REPO_ROOT/apply.sh" "$SERIES_ROOT/apply.sh"
-
-git init "$TARGET_DIR" >/dev/null
-printf 'hello\n' > "$TARGET_DIR/demo.txt"
-git -C "$TARGET_DIR" add demo.txt
-git -C "$TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'base' >/dev/null
-
-printf 'hello world\n' > "$TARGET_DIR/demo.txt"
-git -C "$TARGET_DIR" add demo.txt
-git -C "$TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'update demo' >/dev/null
-git -C "$TARGET_DIR" format-patch -1 HEAD --stdout > "$PATCH_DIR/0001-update-demo.patch"
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "hello world"
 git -C "$TARGET_DIR" reset --hard HEAD~1 >/dev/null
 
 printf 'dirty\n' >> "$TARGET_DIR/demo.txt"
@@ -46,8 +69,7 @@ if ! grep -q 'Usage:' "$NOARG_LOG"; then
     exit 1
 fi
 
-CURRENT_CONTENT="$(<"$TARGET_DIR/demo.txt")"
-if [ "$CURRENT_CONTENT" != $'hello\ndirty' ]; then
+if [ "$(<"$TARGET_DIR/demo.txt")" != $'hello\ndirty' ]; then
     printf 'expected no-arg invocation to leave worktree untouched\n' >&2
     exit 1
 fi
@@ -82,6 +104,146 @@ fi
 ) >/dev/null
 
 if [ "$(<"$TARGET_DIR/demo.txt")" != 'hello' ]; then
-    printf 'expected cleanup mode to restore clean base tree\n' >&2
+    printf 'expected fallback cleanup mode to restore dirty base tree\n' >&2
+    exit 1
+fi
+
+mapfile -t FIXTURE < <(create_fixture "stateful-cleanup")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
+PATCH_DIR="$SERIES_ROOT/demo/project"
+BASE_HEAD="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "hello world"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --mb
+) >/dev/null
+
+if [ "$(git -C "$TARGET_DIR" rev-parse HEAD)" = "$BASE_HEAD" ]; then
+    printf 'expected --mb to apply a patch commit\n' >&2
+    exit 1
+fi
+
+if [ ! -f "$AOSP_ROOT/.fuck-bpf-apply-state" ]; then
+    printf 'expected --mb to record cleanup state\n' >&2
+    exit 1
+fi
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --cleanup
+) >/dev/null
+
+if [ "$(git -C "$TARGET_DIR" rev-parse HEAD)" != "$BASE_HEAD" ]; then
+    printf 'expected stateful cleanup to reset to original base commit\n' >&2
+    exit 1
+fi
+
+if [ -f "$AOSP_ROOT/.fuck-bpf-apply-state" ]; then
+    printf 'expected successful cleanup to remove cleanup state\n' >&2
+    exit 1
+fi
+
+mapfile -t FIXTURE < <(create_fixture "partial-failure")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
+PATCH_DIR="$SERIES_ROOT/demo/project"
+BASE_HEAD="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "hello world"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0002-conflicting-demo.patch" "conflicting demo" "HELLO"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+
+STATUS=0
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --mb
+) >/dev/null 2>&1 || STATUS=$?
+
+if [ "$STATUS" -eq 0 ]; then
+    printf 'expected --mb to fail on second conflicting patch\n' >&2
+    exit 1
+fi
+
+if [ "$(git -C "$TARGET_DIR" rev-parse HEAD)" = "$BASE_HEAD" ]; then
+    printf 'expected first patch commit to remain before cleanup\n' >&2
+    exit 1
+fi
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --cleanup
+) >/dev/null
+
+if [ "$(git -C "$TARGET_DIR" rev-parse HEAD)" != "$BASE_HEAD" ]; then
+    printf 'expected cleanup after partial failure to restore base commit\n' >&2
+    exit 1
+fi
+
+mapfile -t FIXTURE < <(create_fixture "legacy-fallback")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
+PATCH_DIR="$SERIES_ROOT/demo/project"
+BASE_HEAD="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "hello world"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+
+git -C "$TARGET_DIR" am -3 "$PATCH_DIR/0001-update-demo.patch" >/dev/null
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --cleanup
+) >/dev/null
+
+if [ "$(git -C "$TARGET_DIR" rev-parse HEAD)" != "$BASE_HEAD" ]; then
+    printf 'expected no-state fallback cleanup to drop matching patch commit\n' >&2
+    exit 1
+fi
+
+mapfile -t FIXTURE < <(create_fixture "legacy-refuse-user-commit")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
+PATCH_DIR="$SERIES_ROOT/demo/project"
+BASE_HEAD="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+
+create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "hello world"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+
+git -C "$TARGET_DIR" am -3 "$PATCH_DIR/0001-update-demo.patch" >/dev/null
+printf 'user work\n' > "$TARGET_DIR/user.txt"
+git -C "$TARGET_DIR" add user.txt
+git -C "$TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' \
+    commit -m 'user commit' >/dev/null
+
+REFUSE_LOG="$TMP_DIR/refuse.log"
+STATUS=0
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --cleanup
+) >"$REFUSE_LOG" 2>&1 || STATUS=$?
+
+if [ "$STATUS" -eq 0 ]; then
+    printf 'expected no-state cleanup to refuse deleting user commit\n' >&2
+    cat "$REFUSE_LOG" >&2
+    exit 1
+fi
+
+if ! grep -q 'refusing cleanup' "$REFUSE_LOG"; then
+    printf 'expected refusal reason in cleanup log\n' >&2
+    cat "$REFUSE_LOG" >&2
+    exit 1
+fi
+
+if [ "$(git -C "$TARGET_DIR" log -1 --format=%s)" != 'user commit' ]; then
+    printf 'expected refusal to preserve user commit at HEAD\n' >&2
     exit 1
 fi
