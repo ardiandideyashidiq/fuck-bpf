@@ -20,17 +20,17 @@ abort path is reached.
 This allows devices with older vendor kernels to boot
 successfully without full BPF/CLAT support.
 ---
- ...m_android_server_connectivity_ClatCoordinator.cpp | 7 +++++++
- 1 file changed, 7 insertions(+)
+ ...ndroid_server_connectivity_ClatCoordinator.cpp | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-index 437e78fafd..9ae94fa264 100644
+index 437e78f..5d2d4e9 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-@@ -106,6 +106,13 @@ static void verifyClatPerms() {
-     // failures here are 99% likely to be build problems.
+@@ -112,6 +112,13 @@ static void verifyClatPerms() {
      V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
      V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
+ 
 +    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
 +    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
 +    if (!bpf::isAtLeastKernelVersion(5, 10, 0)) {
@@ -38,9 +38,23 @@ index 437e78fafd..9ae94fa264 100644
 +        return;
 +    }
 +
+     // Move on to verifying that the bpf programs and maps are as expected.
+     // This relies on the kernel and bpfloader.
  
-    // Move on to verifying that the bpf programs and maps are as expected.
-    // This relies on the kernel and bpfloader.
-
+@@ -137,14 +144,6 @@ static void verifyClatPerms() {
+ 
+ #undef V2
+ 
+-    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
+-    // This is *NOT* supported, but let's allow, at least for now, U+ GSI to boot on them.
+-    // (without this hack pixel5 R vendor + U gsi breaks)
+-    if (isGsiImage() && !bpf::isAtLeastKernelVersion(5, 10, 0)) {
+-        ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
+-        return;
+-    }
+-
+     if (fatal) abort();
+ }
+ 
 -- 
 2.54.0
