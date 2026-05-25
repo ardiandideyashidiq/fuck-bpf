@@ -1,0 +1,87 @@
+From 1a267bfbf70115dc52b4a7097a21a9e04e256e07 Mon Sep 17 00:00:00 2001
+From: Aryan Sinha <techyminati@outlook.com>
+Date: Mon, 25 May 2026 12:16:04 +0000
+Subject: [PATCH 3/4] kernel_configs: Relax q/android-4.9 and p/android-4.4
+ requirements
+
+Remove BPF config requirements from q/android-4.9 and p/android-4.4
+kernel configs, and lower minlts for p/android-4.4 to 4.4.107.
+
+These configs exist in AOSP 16 QPR2 with BPF syscall requirements
+which prevent booting on kernels < 4.19.
+---
+ p/android-4.4/android-base-conditional.xml | 2 +-
+ p/android-4.4/android-base.config          | 4 ----
+ q/android-4.9/android-base.config          | 4 ----
+ 3 files changed, 1 insertion(+), 9 deletions(-)
+
+diff --git a/p/android-4.4/android-base-conditional.xml b/p/android-4.4/android-base-conditional.xml
+index 6d4a555..97931aa 100644
+--- a/p/android-4.4/android-base-conditional.xml
++++ b/p/android-4.4/android-base-conditional.xml
+@@ -1 +1 @@
+-<kernel minlts="4.4.302" />
++<kernel minlts="4.4.107" />
+diff --git a/p/android-4.4/android-base.config b/p/android-4.4/android-base.config
+index 25dd174..0f03d85 100644
+--- a/p/android-4.4/android-base.config
++++ b/p/android-4.4/android-base.config
+@@ -17,9 +17,7 @@ CONFIG_ASHMEM=y
+ CONFIG_AUDIT=y
+ CONFIG_BLK_DEV_INITRD=y
+ CONFIG_BLOCK=y
+-CONFIG_BPF_SYSCALL=y
+ CONFIG_CGROUPS=y
+-CONFIG_CGROUP_BPF=y
+ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CGROUP_SCHED=y
+@@ -89,7 +87,6 @@ CONFIG_MODVERSIONS=y
+ CONFIG_NET=y
+ CONFIG_NETDEVICES=y
+ CONFIG_NETFILTER=y
+-CONFIG_NETFILTER_XT_MATCH_BPF=y
+ CONFIG_NETFILTER_XT_MATCH_COMMENT=y
+ CONFIG_NETFILTER_XT_MATCH_CONNLIMIT=y
+ CONFIG_NETFILTER_XT_MATCH_CONNMARK=y
+@@ -124,7 +121,6 @@ CONFIG_NETFILTER_XT_TARGET_TCPMSS=y
+ CONFIG_NETFILTER_XT_TARGET_TPROXY=y
+ CONFIG_NETFILTER_XT_TARGET_TRACE=y
+ CONFIG_NET_CLS_ACT=y
+-CONFIG_NET_CLS_BPF=y
+ CONFIG_NET_CLS_U32=y
+ CONFIG_NET_EMATCH=y
+ CONFIG_NET_EMATCH_U32=y
+diff --git a/q/android-4.9/android-base.config b/q/android-4.9/android-base.config
+index 136c2c2..f101d89 100644
+--- a/q/android-4.9/android-base.config
++++ b/q/android-4.9/android-base.config
+@@ -20,10 +20,8 @@ CONFIG_BINFMT_SCRIPT=y
+ CONFIG_BLK_DEV_INITRD=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLOCK=y
+-CONFIG_BPF_SYSCALL=y
+ CONFIG_CC_STACKPROTECTOR_STRONG=y
+ CONFIG_CGROUPS=y
+-CONFIG_CGROUP_BPF=y
+ CONFIG_CGROUP_CPUACCT=y
+ CONFIG_CGROUP_FREEZER=y
+ CONFIG_CGROUP_SCHED=y
+@@ -106,7 +104,6 @@ CONFIG_MULTIUSER=y
+ CONFIG_NET=y
+ CONFIG_NETDEVICES=y
+ CONFIG_NETFILTER=y
+-CONFIG_NETFILTER_XT_MATCH_BPF=y
+ CONFIG_NETFILTER_XT_MATCH_COMMENT=y
+ CONFIG_NETFILTER_XT_MATCH_CONNLIMIT=y
+ CONFIG_NETFILTER_XT_MATCH_CONNMARK=y
+@@ -142,7 +139,6 @@ CONFIG_NETFILTER_XT_TARGET_TCPMSS=y
+ CONFIG_NETFILTER_XT_TARGET_TPROXY=y
+ CONFIG_NETFILTER_XT_TARGET_TRACE=y
+ CONFIG_NET_CLS_ACT=y
+-CONFIG_NET_CLS_BPF=y
+ CONFIG_NET_CLS_U32=y
+ CONFIG_NET_EMATCH=y
+ CONFIG_NET_EMATCH_U32=y
+-- 
+2.43.0
