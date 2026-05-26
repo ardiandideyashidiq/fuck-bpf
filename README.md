@@ -64,10 +64,12 @@ To verify that all target repos are clean after applying patches, run:
 
 Verify checks each target repo for a clean working tree and confirms that no `git am` session is still in progress.
 
-If you intentionally want the old destructive reset/abort behavior, run:
+If you intentionally want destructive cleanup across target repos, run:
 ```
 ./fuck-bpf/apply.sh --cleanup
 ```
+
+Cleanup aborts any active `git am`, resets patched repos back to the recorded pre-apply base when available, and removes untracked and ignored files such as generated build outputs.
 
 Any missing or unknown mode now prints usage and exits non-zero instead of cleaning repos implicitly.
 
