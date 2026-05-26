@@ -47,9 +47,17 @@ cleanup_series_to_base() {
         return 1
     fi
 
+    cleanup_series_worktree "$series_dir" "$base"
+}
+
+cleanup_series_worktree() {
+    local series_dir="$1"
+    local reset_target="${2:-HEAD}"
+
+    printf 'Cleaning %s to %s\n' "$series_dir" "$reset_target"
     git -C "$AOSP_ROOT/$series_dir" am --abort > /dev/null 2>&1 || true
-    git -C "$AOSP_ROOT/$series_dir" reset --hard "$base" > /dev/null
-    git -C "$AOSP_ROOT/$series_dir" clean -fd > /dev/null
+    git -C "$AOSP_ROOT/$series_dir" reset --hard "$reset_target" > /dev/null
+    git -C "$AOSP_ROOT/$series_dir" clean -ffdx > /dev/null
 }
 
 patch_id_for_file() {
@@ -153,6 +161,7 @@ cleanup_series_fallback() {
     local matched_count=0
     local scanned_count=0
 
+    printf 'Using fallback cleanup for %s\n' "$series_dir"
     git -C "$AOSP_ROOT/$series_dir" am --abort > /dev/null 2>&1 || true
 
     while true; do
@@ -175,8 +184,7 @@ cleanup_series_fallback() {
         [ "$scanned_count" -gt 0 ] || true
     fi
 
-    git -C "$AOSP_ROOT/$series_dir" reset --hard > /dev/null
-    git -C "$AOSP_ROOT/$series_dir" clean -fd > /dev/null
+    cleanup_series_worktree "$series_dir"
 }
 
 cleanup_from_state() {
@@ -186,6 +194,7 @@ cleanup_from_state() {
 
     while read -r series_dir base; do
         [ -n "$series_dir" ] || continue
+        printf 'Using recorded cleanup state for %s\n' "$series_dir"
         if ! cleanup_series_to_base "$series_dir" "$base"; then
             exit_code=1
         fi

@@ -11,8 +11,9 @@
 
 ## Critical Gotcha
 - `apply.sh` only applies patches when the first argument is exactly `--mb`.
-- Any other invocation takes the cleanup branch: for every patch-bearing project it runs `git am --abort`, `git reset --hard`, and `git clean -fd` in the corresponding AOSP path.
-- Never suggest or run `./apply.sh` casually against a populated tree unless destructive cleanup is intended.
+- `--cleanup` is explicit and destructive: for patch-bearing projects it aborts `git am`, resets to the recorded base when available, and runs `git clean -ffdx` to remove untracked and ignored generated files.
+- Missing or unknown modes print usage and exit non-zero without mutating target repos.
+- Never suggest or run `./apply.sh --cleanup` casually against a populated tree unless destructive cleanup is intended.
 
 ## Patch Conventions
 - Current patch-bearing project paths are `bionic`, `frameworks/native`, `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, `system/sepolicy`, and `system/vold`.

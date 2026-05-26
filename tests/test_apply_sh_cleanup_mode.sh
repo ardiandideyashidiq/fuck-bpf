@@ -18,7 +18,8 @@ create_fixture() {
 
     git init "$target_dir" >/dev/null
     printf 'hello\n' > "$target_dir/demo.txt"
-    git -C "$target_dir" add demo.txt
+    printf 'build/\nout/\n' > "$target_dir/.gitignore"
+    git -C "$target_dir" add .gitignore demo.txt
     git -C "$target_dir" -c user.name='Test User' -c user.email='test@example.com' \
         commit -m 'base' >/dev/null
 
@@ -39,6 +40,18 @@ create_patch() {
     git -C "$target_dir" format-patch -1 HEAD --stdout > "$patch_dir/$patch_name"
 }
 
+create_build_artifact_patch() {
+    local target_dir="$1"
+    local patch_dir="$2"
+    local patch_name="$3"
+
+    printf 'tracked artifact\n' > "$target_dir/out"
+    git -C "$target_dir" add -f out
+    git -C "$target_dir" -c user.name='Test User' -c user.email='test@example.com' \
+        commit -m 'add generated artifact' >/dev/null
+    git -C "$target_dir" format-patch -1 HEAD --stdout > "$patch_dir/$patch_name"
+}
+
 mapfile -t FIXTURE < <(create_fixture "mode-safety")
 AOSP_ROOT="${FIXTURE[0]}"
 SERIES_ROOT="${FIXTURE[1]}"
@@ -49,6 +62,8 @@ create_patch "$TARGET_DIR" "$PATCH_DIR" "0001-update-demo.patch" "update demo" "
 git -C "$TARGET_DIR" reset --hard HEAD~1 >/dev/null
 
 printf 'dirty\n' >> "$TARGET_DIR/demo.txt"
+mkdir -p "$TARGET_DIR/build"
+printf 'generated\n' > "$TARGET_DIR/build/generated.txt"
 
 NOARG_LOG="$TMP_DIR/noarg.log"
 STATUS=0
@@ -105,6 +120,44 @@ fi
 
 if [ "$(<"$TARGET_DIR/demo.txt")" != 'hello' ]; then
     printf 'expected fallback cleanup mode to restore dirty base tree\n' >&2
+    exit 1
+fi
+
+if [ -e "$TARGET_DIR/build/generated.txt" ]; then
+    printf 'expected cleanup mode to remove ignored generated files\n' >&2
+    exit 1
+fi
+
+mapfile -t FIXTURE < <(create_fixture "ignored-path-conflict")
+AOSP_ROOT="${FIXTURE[0]}"
+SERIES_ROOT="${FIXTURE[1]}"
+TARGET_DIR="${FIXTURE[2]}"
+PATCH_DIR="$SERIES_ROOT/demo/project"
+BASE_HEAD="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+
+create_build_artifact_patch "$TARGET_DIR" "$PATCH_DIR" "0001-add-generated-artifact.patch"
+git -C "$TARGET_DIR" reset --hard "$BASE_HEAD" >/dev/null
+
+mkdir -p "$TARGET_DIR/out"
+printf 'stale generated artifact\n' > "$TARGET_DIR/out/generated.txt"
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --cleanup
+) >/dev/null
+
+if [ -e "$TARGET_DIR/out/generated.txt" ]; then
+    printf 'expected cleanup to remove ignored directory before retrying patches\n' >&2
+    exit 1
+fi
+
+(
+    cd "$AOSP_ROOT"
+    "$SERIES_ROOT/apply.sh" --mb
+) >/dev/null
+
+if [ "$(<"$TARGET_DIR/out")" != 'tracked artifact' ]; then
+    printf 'expected cleanup to remove ignored blocker so the patch can apply\n' >&2
     exit 1
 fi
 
