@@ -1,26 +1,39 @@
-# AGENTS.md
+# Repository Guidelines
 
-## Repo Shape
-- This repo is a collection of `git am` patch series for an AOSP checkout, not a buildable workspace. Top-level paths like `frameworks/`, `hardware/`, `kernel/`, `packages/`, and `system/` mirror target project paths inside Android source.
-- Each directory containing `*.patch` files is an independent series for the matching AOSP project.
+## Project Structure & Module Organization
 
-## Workflow
-- Run `./fuck-bpf/apply.sh --mb` from the root of the Android source tree. `apply.sh` uses the caller's current directory as the AOSP root.
-- To apply one series manually, run `git am -3 /path/to/fuck-bpf/<project>/*.patch` from the matching project inside the AOSP checkout.
-- `apply.sh` applies patches in shell-glob order, so keep numeric prefixes zero-padded and strictly increasing within a directory.
+This repository stores `git am` patch series for an Android/AOSP source tree. It is not a standalone buildable project. Top-level directories mirror target AOSP projects, such as `bionic/`, `frameworks/native/`, `packages/modules/Connectivity/`, `system/bpf/`, and `system/netd/`.
 
-## Critical Gotcha
-- `apply.sh` only applies patches when the first argument is exactly `--mb`.
-- `--cleanup` is explicit and destructive: for patch-bearing projects it aborts `git am`, resets to the recorded base when available, and runs `git clean -ffdx` to remove untracked and ignored generated files.
-- Missing or unknown modes print usage and exit non-zero without mutating target repos.
-- Never suggest or run `./apply.sh --cleanup` casually against a populated tree unless destructive cleanup is intended.
+Each directory containing `*.patch` files is an independent series for the matching AOSP project. Multi-patch series must remain in strict numeric order, for example `system/bpf/0001-...patch` before `system/bpf/0002-...patch`. Helper scripts live in `scripts/`; shell-based tests live in `tests/`.
 
-## Patch Conventions
-- Current patch-bearing project paths are `bionic`, `frameworks/native`, `hardware/interfaces`, `kernel/configs`, `packages/modules/Connectivity`, `packages/modules/DnsResolver`, `system/apex`, `system/bpf`, `system/core`, `system/netd`, `system/sepolicy`, and `system/vold`.
-- Multi-patch series currently exist in `kernel/configs`, `packages/modules/Connectivity`, `system/bpf`, `system/core`, and `system/netd`; preserve series order when editing or inserting patches.
-- `.pre-commit-config.yaml` enforces patch-specific rules: every patch must keep the mbox footer (`-- `), end with a trailing newline, avoid creating/modifying `*.patch` files inside the diff, and keep numbering increasing per directory.
+## Build, Test, and Development Commands
 
-## Verification
-- There is no repo-local build or test suite here; practical verification is patch hygiene plus application against a real AOSP tree.
-- For changed patches, run `pre-commit run --files path/to/changed.patch` or `pre-commit run --all-files`.
-- If docs and scripts disagree, trust `apply.sh` and `.pre-commit-config.yaml` over README prose.
+- `./fuck-bpf/apply.sh --mb`: run from the root of a synced AOSP checkout to apply every patch series.
+- `./fuck-bpf/apply.sh --dry-run`: check whether patch series would apply cleanly without mutating target repos.
+- `./fuck-bpf/apply.sh --verify`: check target repos for clean worktrees and unfinished `git am` state.
+- `pre-commit run --files path/to/changed.patch`: run patch hygiene checks for selected patches.
+- `FUCK_BPF_SOURCE_ROOT=/path/to/aosp pre-commit run --all-files`: additionally validate patch replay against a synced source tree.
+
+Use `./fuck-bpf/apply.sh --cleanup` only when destructive cleanup is intended; it may abort `git am`, reset repos, and remove untracked files.
+
+## Coding Style & Naming Conventions
+
+Patch filenames must begin with zero-padded, increasing numeric prefixes: `0001-short-subject.patch`. Keep patch subjects descriptive and scoped to the target project. Do not create or modify `*.patch` files inside another patch diff.
+
+Shell scripts use Bash with defensive options where appropriate (`set -euo pipefail`). Keep scripts POSIX-friendly only when the existing file is already written that way.
+
+## Testing Guidelines
+
+There is no repo-local Android build. Practical verification is patch hygiene plus replay against a real AOSP tree. Run targeted pre-commit checks after editing patches, and use `--dry-run` or `scripts/validate-patches.sh` with `FUCK_BPF_SOURCE_ROOT` when an AOSP checkout is available.
+
+Test scripts are named `tests/test_*.sh`. Add focused shell tests when changing `apply.sh` or validation behavior.
+
+## Commit & Pull Request Guidelines
+
+Recent commits use short, imperative summaries, sometimes terse. Prefer clearer messages such as `refactor apply script` or `regen hotspot patch`; include the affected series when useful.
+
+Pull requests should describe which patch series changed, why the change is needed, and what verification was run. Mention any AOSP branch or device assumptions. Include failure output only when it helps reviewers reproduce the issue.
+
+## Agent-Specific Instructions
+
+Trust `apply.sh` and `.pre-commit-config.yaml` over README prose if behavior differs. Preserve user changes in the worktree, avoid casual cleanup commands, and keep patch numbering stable when inserting or regenerating series.

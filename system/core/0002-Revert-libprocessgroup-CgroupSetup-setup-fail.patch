@@ -1,0 +1,39 @@
+From 70d24b2f91e144af375ab0ce2c7e454689e38fc6 Mon Sep 17 00:00:00 2001
+From: Yumi Yukimura <me.cafebabe@gmail.com>
+Date: Mon, 12 Jan 2026 00:19:12 +0800
+Subject: [PATCH] Revert "libprocessgroup: CgroupSetup should fail if a
+ required controller fails to mount"
+
+This reverts commit 70daa2851508e56af3fcf685851b40f7c7f997d0.
+
+Change-Id: Ie90acc0becd6c95865551b733883570a0d823246
+---
+ libprocessgroup/setup/cgroup_map_write.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
+index 75dc711..34a6b6e 100644
+--- a/libprocessgroup/setup/cgroup_map_write.cpp
++++ b/libprocessgroup/setup/cgroup_map_write.cpp
+@@ -175,7 +175,7 @@ static bool ActivateV2CgroupController(const CgroupDescriptor& descriptor) {
+ 
+     if (!Mkdir(controller->path(), descriptor.mode(), descriptor.uid(), descriptor.gid())) {
+         LOG(ERROR) << "Failed to create directory for " << controller->name() << " cgroup";
+-        return descriptor.controller()->flags() & CGROUPRC_CONTROLLER_FLAG_OPTIONAL;
++        return false;
+     }
+ 
+     return ::ActivateControllers(controller->path(), {{controller->name(), descriptor}});
+@@ -331,8 +331,8 @@ bool CgroupSetup() {
+         }
+ 
+         if (!SetupCgroup(descriptor)) {
+-            LOG(ERROR) << "Failed to setup " << name << " cgroup";
+-            return false;
++            // issue a warning and proceed with the next cgroup
++            LOG(WARNING) << "Failed to setup " << name << " cgroup";
+         }
+     }
+ 
+-- 
+2.54.0

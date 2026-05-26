@@ -10,8 +10,10 @@ SOURCE_ROOT="$TMP_DIR/source"
 PATCH_REPO="$TMP_DIR/fuck-bpf"
 TARGET_DIR="$SOURCE_ROOT/demo/project"
 PATCH_DIR="$PATCH_REPO/demo/project"
+OTHER_TARGET_DIR="$SOURCE_ROOT/demo/other"
+OTHER_PATCH_DIR="$PATCH_REPO/demo/other"
 
-mkdir -p "$TARGET_DIR" "$PATCH_DIR"
+mkdir -p "$TARGET_DIR" "$PATCH_DIR" "$OTHER_TARGET_DIR" "$OTHER_PATCH_DIR"
 if [ -d "$REPO_ROOT/scripts" ]; then
     cp -R "$REPO_ROOT/scripts" "$PATCH_REPO/scripts"
 fi
@@ -21,11 +23,22 @@ printf 'hello\n' > "$TARGET_DIR/demo.txt"
 git -C "$TARGET_DIR" add demo.txt
 git -C "$TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'base' >/dev/null
 
+git init "$OTHER_TARGET_DIR" >/dev/null
+printf 'other\n' > "$OTHER_TARGET_DIR/demo.txt"
+git -C "$OTHER_TARGET_DIR" add demo.txt
+git -C "$OTHER_TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'base' >/dev/null
+
 printf 'hello world\n' > "$TARGET_DIR/demo.txt"
 git -C "$TARGET_DIR" add demo.txt
 git -C "$TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'update demo' >/dev/null
 git -C "$TARGET_DIR" format-patch -1 HEAD --stdout > "$PATCH_DIR/0001-update-demo.patch"
 git -C "$TARGET_DIR" reset --hard HEAD~1 >/dev/null
+
+printf 'other changed\n' > "$OTHER_TARGET_DIR/demo.txt"
+git -C "$OTHER_TARGET_DIR" add demo.txt
+git -C "$OTHER_TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'update other' >/dev/null
+git -C "$OTHER_TARGET_DIR" format-patch -1 HEAD --stdout > "$OTHER_PATCH_DIR/0001-update-other.patch"
+git -C "$OTHER_TARGET_DIR" reset --hard HEAD~1 >/dev/null
 
 VALIDATE_LOG="$TMP_DIR/validate.log"
 bash "$PATCH_REPO/scripts/validate-patches.sh" "$SOURCE_ROOT" >"$VALIDATE_LOG" 2>&1
@@ -52,6 +65,18 @@ fi
 
 if ! grep -q 'Series failed: demo/project' "$FAIL_LOG"; then
     printf 'expected validation failure output\n' >&2
+    cat "$FAIL_LOG" >&2
+    exit 1
+fi
+
+if ! grep -q 'Series applies cleanly: demo/other' "$FAIL_LOG"; then
+    printf 'expected validation to continue to independent series after failure\n' >&2
+    cat "$FAIL_LOG" >&2
+    exit 1
+fi
+
+if ! grep -q 'Patches needing regeneration:' "$FAIL_LOG"; then
+    printf 'expected validation regeneration summary\n' >&2
     cat "$FAIL_LOG" >&2
     exit 1
 fi

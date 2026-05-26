@@ -1,0 +1,4 @@
+choice legacy-kernel-matrices
+option restore 0002-compatibility_matrices-Bring-back-4.9-4.4.patch
+option existing 0003-compatibility_matrices-Bring-back-existing-legacy-kernels.patch
+endchoice
