@@ -3,13 +3,14 @@ From: Pierre-Hugues Husson <phh@phh.me>
 Date: Mon, 16 Jun 2025 16:21:55 -0400
 Subject: [PATCH 5/8] Some additional handling of bpf-less device
 
-Guard sLocalNetAccessMap operations with null checks so that
-devices without BPF support don't crash.
+Guard sLocalNetAccessMap operations with null checks and fix
+PERMISSION_INTERNET constant reference so that devices without
+BPF support don't crash.
 
 Change-Id: I7360ef049fd57d0f27a4579719b7ec05bba971b0
 ---
- service/src/com/android/server/BpfNetMaps.java | 2 ++
- 1 file changed, 2 insertions(+)
+ service/src/com/android/server/BpfNetMaps.java | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
 index 4879362bc2..0842fc8e68 100644
@@ -31,5 +32,13 @@ index 4879362bc2..0842fc8e68 100644
          final int ifIndex;
          if (iface == null) {
              ifIndex = 0;
+@@ -1083,6 +1083,6 @@ public class BpfNetMaps {
+     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+     public int getNetPermForUid(final int uid) {
+         final int appId = UserHandle.getAppId(uid);
+-        if (sUidPermissionMap == null) return PERMISSION_INTERNET;
++        if (sUidPermissionMap == null) return TRAFFIC_PERMISSION_INTERNET;
+         try {
+             // Key of uid permission map is appId
 -- 
 2.54.0
