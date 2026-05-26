@@ -27,7 +27,7 @@ diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
 index ac1ca3b..477cfe2 100644
 --- a/loader/bpfloader.rs
 +++ b/loader/bpfloader.rs
-@@ -657,7 +657,7 @@ fn main() {
+@@ -683,7 +683,7 @@ fn main() {
      info!("Loading legacy BPF progs");
  
      if let Err(e) = create_dir(Path::new("/sys/fs/bpf/vendor")) {
@@ -38,4 +38,3 @@ index ac1ca3b..477cfe2 100644
      // SAFETY: Linking in the existing legacy vendor bpfloader functionality.
 -- 
 2.54.0
-

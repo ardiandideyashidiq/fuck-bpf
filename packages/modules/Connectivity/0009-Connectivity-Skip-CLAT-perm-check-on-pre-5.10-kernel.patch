@@ -9,10 +9,6 @@ permission verification logic. This causes verifyClatPerms()
 to trigger a fatal abort during JNI_OnLoad, leading to a
 system_server crash at boot.
 
-Previous Trebledroid patch relaxes this requirement for GSI builds, but
-device builds on legacy kernels are also intentionally
-supported in custom ROMs.
-
 Move the legacy-kernel guard before any BPF filesystem or
 object verification so devices below 5.10 return before the
 abort path is reached. Parse uname().release directly for this
@@ -21,28 +17,27 @@ early gate so the check matches the actual running vendor kernel.
 This allows devices with older vendor kernels to boot
 successfully without full BPF/CLAT support.
 ---
- ...id_server_connectivity_ClatCoordinator.cpp | 35 ++++++++++++++-----
- 1 file changed, 27 insertions(+), 8 deletions(-)
+ ...id_server_connectivity_ClatCoordinator.cpp | 35 +++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-index 437e78f..25dd122 100644
+index 70991eb..bc5e1e4 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-@@ -26,8 +26,10 @@
+@@ -26,7 +26,9 @@
  #include <nativehelper/JNIHelp.h>
  #include <net/if.h>
  #include <spawn.h>
 +#include <stdio.h>
  #include <sys/stat.h>
- #include <sys/types.h>
 +#include <sys/utsname.h>
+ #include <sys/types.h>
  #include <sys/wait.h>
  #include <sys/xattr.h>
- #include <string>
-@@ -99,6 +101,24 @@ bool isGsiImage() {
+@@ -94,6 +96,24 @@
  static const char* kClatdDir = "/apex/com.android.tethering/bin/for-system";
  static const char* kClatdBin = "/apex/com.android.tethering/bin/for-system/clatd";
- 
+
 +static bool isRunningKernelAtLeast(unsigned int minMajor, unsigned int minMinor) {
 +    struct utsname uts = {};
 +    if (uname(&uts)) {
@@ -63,11 +58,11 @@ index 437e78f..25dd122 100644
 +
  #define V(path, md, uid, gid, ctx, vtype) \
      verifyPerms((path), (md), AID_ ## uid, AID_ ## gid, "u:object_r:" ctx ":s0", VERIFY_ ## vtype)
- 
-@@ -112,6 +132,13 @@ static void verifyClatPerms() {
+
+@@ -107,4 +127,11 @@
      V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
      V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
- 
+
 +    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
 +    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
 +    if (!isRunningKernelAtLeast(5, 10)) {
@@ -77,21 +72,5 @@ index 437e78f..25dd122 100644
 +
      // Move on to verifying that the bpf programs and maps are as expected.
      // This relies on the kernel and bpfloader.
- 
-@@ -137,14 +164,6 @@ static void verifyClatPerms() {
- 
- #undef V2
- 
--    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
--    // This is *NOT* supported, but let's allow, at least for now, U+ GSI to boot on them.
--    // (without this hack pixel5 R vendor + U gsi breaks)
--    if (isGsiImage() && !bpf::isAtLeastKernelVersion(5, 10, 0)) {
--        ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
--        return;
--    }
--
-     if (fatal) abort();
- }
- 
 -- 
 2.54.0
