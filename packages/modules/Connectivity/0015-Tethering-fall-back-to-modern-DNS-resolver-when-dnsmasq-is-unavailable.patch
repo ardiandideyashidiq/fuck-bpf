@@ -19,10 +19,10 @@ Issue: #14
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Tethering/src/com/android/networkstack/tethering/Tethering.java b/Tethering/src/com/android/networkstack/tethering/Tethering.java
-index 722e81c2c4..04f0afcfb1 100644
+index ed4752262a..c1c44f9 100644
 --- a/Tethering/src/com/android/networkstack/tethering/Tethering.java
 +++ b/Tethering/src/com/android/networkstack/tethering/Tethering.java
-@@ -2089,13 +2089,13 @@ public class Tethering {
+@@ -2070,12 +2070,12 @@ public class Tethering {
              final String[] dhcpRanges = cfg.useLegacyDhcpServer()
                      ? cfg.legacyDhcpRanges : new String[0];
              try {
@@ -37,5 +37,8 @@ index 722e81c2c4..04f0afcfb1 100644
                  } catch (RemoteException | ServiceSpecificException ee) {
                      mLog.e(ee);
                      transitionTo(mStartTetheringErrorState);
--- 
+                     return false;
+                 }
+             }
+--
 2.54.0
