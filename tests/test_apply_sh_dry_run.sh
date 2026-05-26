@@ -94,14 +94,61 @@ if [ "$STATUS" -eq 0 ]; then
     exit 1
 fi
 
-if ! grep -q 'Would fail patch: demo/project/0001-update-demo.patch' "$CONFLICT_LOG"; then
-    printf 'expected would-fail message in dry-run conflict log\n' >&2
+if ! grep -q 'Patch needs regeneration: demo/project/0001-update-demo.patch' "$CONFLICT_LOG"; then
+    printf 'expected regeneration message in dry-run conflict log\n' >&2
     cat "$CONFLICT_LOG" >&2
     exit 1
 fi
 
-if grep -q 'Would fail patch: demo/project/0002-update-demo-again.patch' "$CONFLICT_LOG"; then
+if grep -q 'Patch needs regeneration: demo/project/0002-update-demo-again.patch' "$CONFLICT_LOG"; then
     printf 'did not expect the dependent patch to be checked after the first failure\n' >&2
     cat "$CONFLICT_LOG" >&2
+    exit 1
+fi
+
+STALE_AOSP_ROOT="$TMP_DIR/stale-aosp"
+STALE_SERIES_ROOT="$TMP_DIR/stale-fuck-bpf"
+STALE_TARGET_DIR="$STALE_AOSP_ROOT/demo/project"
+STALE_PATCH_DIR="$STALE_SERIES_ROOT/demo/project"
+
+mkdir -p "$STALE_TARGET_DIR" "$STALE_PATCH_DIR"
+cp "$REPO_ROOT/apply.sh" "$STALE_SERIES_ROOT/apply.sh"
+
+git init "$STALE_TARGET_DIR" >/dev/null
+printf 'hello\n' > "$STALE_TARGET_DIR/demo.txt"
+git -C "$STALE_TARGET_DIR" add demo.txt
+git -C "$STALE_TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'base' >/dev/null
+
+cat > "$STALE_PATCH_DIR/0001-stale-demo.patch" <<'PATCH'
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Test User <test@example.com>
+Date: Tue, 1 Jan 2030 00:00:00 +0000
+Subject: [PATCH] stale demo
+
+diff --git a/demo.txt b/demo.txt
+index ce01362..3ad203f 100644
+--- a/demo.txt
++++ b/demo.txt
+@@ -1 +1 @@
+-missing context
++hello world
+PATCH
+
+STALE_LOG="$TMP_DIR/stale-dry-run.log"
+STALE_STATUS=0
+(
+    cd "$STALE_AOSP_ROOT"
+    "$STALE_SERIES_ROOT/apply.sh" --dry-run
+) >"$STALE_LOG" 2>&1 || STALE_STATUS=$?
+
+if [ "$STALE_STATUS" -eq 0 ]; then
+    printf 'expected dry-run to fail for stale patch needing regeneration\n' >&2
+    cat "$STALE_LOG" >&2
+    exit 1
+fi
+
+if ! grep -q 'Patch needs regeneration: demo/project/0001-stale-demo.patch' "$STALE_LOG"; then
+    printf 'expected regeneration error in dry-run stale patch log\n' >&2
+    cat "$STALE_LOG" >&2
     exit 1
 fi

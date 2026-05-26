@@ -63,3 +63,48 @@ if grep -q 'Patch already applied' "$SECOND_LOG"; then
     cat "$SECOND_LOG" >&2
     exit 1
 fi
+
+STRICT_AOSP_ROOT="$TMP_DIR/strict-aosp"
+STRICT_SERIES_ROOT="$TMP_DIR/strict-fuck-bpf"
+STRICT_TARGET_DIR="$STRICT_AOSP_ROOT/demo/project"
+STRICT_PATCH_DIR="$STRICT_SERIES_ROOT/demo/project"
+
+mkdir -p "$STRICT_TARGET_DIR" "$STRICT_PATCH_DIR"
+cp "$REPO_ROOT/apply.sh" "$STRICT_SERIES_ROOT/apply.sh"
+
+git init "$STRICT_TARGET_DIR" >/dev/null
+printf 'hello\n' > "$STRICT_TARGET_DIR/demo.txt"
+git -C "$STRICT_TARGET_DIR" add demo.txt
+git -C "$STRICT_TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'base' >/dev/null
+
+printf 'different upstream change\n' > "$STRICT_TARGET_DIR/demo.txt"
+git -C "$STRICT_TARGET_DIR" add demo.txt
+git -C "$STRICT_TARGET_DIR" -c user.name='Test User' -c user.email='test@example.com' commit -m 'update demo' >/dev/null
+
+cat > "$STRICT_PATCH_DIR/0001-corrupt-same-subject.patch" <<'PATCH'
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Test User <test@example.com>
+Date: Tue, 1 Jan 2030 00:00:00 +0000
+Subject: [PATCH] update demo
+
+This patch has a matching subject but no usable diff.
+PATCH
+
+STRICT_LOG="$TMP_DIR/strict-run.log"
+STRICT_STATUS=0
+(
+    cd "$STRICT_AOSP_ROOT"
+    "$STRICT_SERIES_ROOT/apply.sh" --mb
+) >"$STRICT_LOG" 2>&1 || STRICT_STATUS=$?
+
+if [ "$STRICT_STATUS" -eq 0 ]; then
+    printf 'expected corrupt same-subject patch to fail instead of being skipped\n' >&2
+    cat "$STRICT_LOG" >&2
+    exit 1
+fi
+
+if ! grep -q 'Patch needs regeneration: demo/project/0001-corrupt-same-subject.patch' "$STRICT_LOG"; then
+    printf 'expected regeneration error for corrupt same-subject patch\n' >&2
+    cat "$STRICT_LOG" >&2
+    exit 1
+fi

@@ -48,14 +48,14 @@ Support has been added for all kernel versions: **4.4, 4.9, 4.14, and 4.19**. As
 ./fuck-bpf/apply.sh --mb
 ```
 
-`apply.sh --mb` now applies patches one by one and skips patches whose changes are already present in the target tree.
+`apply.sh --mb` applies patches one by one and skips only patches whose diff is already present in the target tree. Patches that are stale, corrupt, or missing hunks fail with `Patch needs regeneration`.
 
 To preview what will happen without modifying the source tree, run:
 ```
 ./fuck-bpf/apply.sh --dry-run
 ```
 
-Dry-run reports whether each patch would apply cleanly, would be skipped as a duplicate, or would fail.
+Dry-run reports whether each patch would apply cleanly, would be skipped as a duplicate, or needs regeneration.
 
 To verify that all target repos are clean after applying patches, run:
 ```

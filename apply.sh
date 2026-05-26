@@ -73,22 +73,13 @@ patch_id_for_commit_in_repo() {
     git -C "$repo_dir" show --format= "$commit" | git patch-id --stable | awk '{print $1}'
 }
 
-patch_subject_for_file() {
-    local patch="$1"
-
-    git mailinfo /dev/null /dev/null < "$patch" | sed -n 's/^Subject: //p'
-}
-
 is_patch_commit_in_repo() {
     local repo_dir="$1"
     local patch="$2"
     local commit="$3"
-    local commit_subject
-    local patch_subject
     local commit_patch_id
     local patch_patch_id
 
-    commit_subject="$(git -C "$repo_dir" log -1 --format=%s "$commit")"
     commit_patch_id="$(patch_id_for_commit_in_repo "$repo_dir" "$commit")"
     patch_patch_id="$(patch_id_for_file "$patch")"
 
@@ -97,12 +88,13 @@ is_patch_commit_in_repo() {
         return $?
     fi
 
-    patch_subject="$(patch_subject_for_file "$patch")"
-    if [ "$commit_subject" = "$patch_subject" ]; then
-        return 0
-    fi
-
     return 1
+}
+
+print_patch_needs_regeneration() {
+    local patch_rel="$1"
+
+    printf 'Patch needs regeneration: %s\n' "$patch_rel" >&2
 }
 
 is_series_patch_commit() {
@@ -244,7 +236,10 @@ apply_series() {
             continue
         fi
 
-        git am -3 "$patch"
+        if ! git am -3 "$patch"; then
+            print_patch_needs_regeneration "${patch#$SCRIPT_DIR/}"
+            return 1
+        fi
     done
 }
 
@@ -273,7 +268,7 @@ dry_run_series() {
 
         git -C "$temp_worktree" am --abort > /dev/null 2>&1 || true
         git -C "$AOSP_ROOT/$series_dir" worktree remove --force "$temp_worktree" > /dev/null 2>&1 || true
-        printf 'Would fail patch: %s\n' "$patch_rel" >&2
+        print_patch_needs_regeneration "$patch_rel"
         return 1
     done
 
