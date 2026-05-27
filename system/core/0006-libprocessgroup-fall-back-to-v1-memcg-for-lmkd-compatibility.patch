@@ -1,8 +1,92 @@
-From 83ea15c05044692344fee4cf5b593528ad54e101 Mon Sep 17 00:00:00 2001
+From 7804cabc363a1e5cd55675772c8ee6c88ff14d1c Mon Sep 17 00:00:00 2001
+From: Yumi Yukimura <me.cafebabe@gmail.com>
+Date: Mon, 12 Jan 2026 00:19:12 +0800
+Subject: [PATCH 1/3] Revert "libprocessgroup: CgroupSetup should fail if a
+ required controller fails to mount"
+
+This reverts commit 70daa2851508e56af3fcf685851b40f7c7f997d0.
+
+Change-Id: Ie90acc0becd6c95865551b733883570a0d823246
+---
+ libprocessgroup/setup/cgroup_map_write.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
+index 75dc711..34a6b6e 100644
+--- a/libprocessgroup/setup/cgroup_map_write.cpp
++++ b/libprocessgroup/setup/cgroup_map_write.cpp
+@@ -175,7 +175,7 @@ static bool ActivateV2CgroupController(const CgroupDescriptor& descriptor) {
+ 
+     if (!Mkdir(controller->path(), descriptor.mode(), descriptor.uid(), descriptor.gid())) {
+         LOG(ERROR) << "Failed to create directory for " << controller->name() << " cgroup";
+-        return descriptor.controller()->flags() & CGROUPRC_CONTROLLER_FLAG_OPTIONAL;
++        return false;
+     }
+ 
+     return ::ActivateControllers(controller->path(), {{controller->name(), descriptor}});
+@@ -331,8 +331,8 @@ bool CgroupSetup() {
+         }
+ 
+         if (!SetupCgroup(descriptor)) {
+-            LOG(ERROR) << "Failed to setup " << name << " cgroup";
+-            return false;
++            // issue a warning and proceed with the next cgroup
++            LOG(WARNING) << "Failed to setup " << name << " cgroup";
+         }
+     }
+ 
+-- 
+2.43.0
+
+
+From e67a3a0d02e5326fdfd15be8eda0025ba5d71cbe Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 26 Apr 2026 16:30:27 +0100
+Subject: [PATCH 2/3] libprocessgroup: tolerate ENOENT on cgroup.procs write
+
+On vendor kernels that lack the full cgroup v2 hierarchy expected by
+APEX services, writing a PID to a non-existent cgroup.procs path fails
+with ENOENT. This currently propagates to the caller and kills the
+service (e.g. vendor.audio-hal-aidl exits 4 times and triggers init
+panic).
+
+Treat ENOENT the same way we already treat ESRCH (thread exiting)
+and ENOSPC (empty cpuset): log nothing and return success so the
+service continues to boot with degraded cgroup support. This aligns
+with the init-level fallback that already makes cgroup creation
+failures non-fatal.
+---
+ libprocessgroup/task_profiles.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/libprocessgroup/task_profiles.cpp b/libprocessgroup/task_profiles.cpp
+index 2730743..d35322c 100644
+--- a/libprocessgroup/task_profiles.cpp
++++ b/libprocessgroup/task_profiles.cpp
+@@ -322,6 +322,14 @@ bool SetCgroupAction::AddTidToCgroup(pid_t tid, int fd, ResourceCacheType cache_
+         return true;
+     }
+ 
++    // ENOENT is returned when the cgroup path does not exist on vendor
++    // kernels that lack the full hierarchy expected by APEX services.
++    // Treat it as non-fatal so boot can continue with degraded cgroup
++    // support (matching the init-level fallback in service.cpp).
++    if (errno == ENOENT) {
++        return true;
++    }
++
+     const char* controller_name = controller()->name();
+     // ENOSPC is returned when cpuset cgroup that we are joining has no online cpus
+     if (errno == ENOSPC && !strcmp(controller_name, "cpuset")) {
+-- 
+2.43.0
+
+
+From 613c191acd991af519325ad159fb91b11304433c Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Wed, 18 Mar 2026 12:18:21 +0000
-Subject: [PATCH 3/8] libprocessgroup: fall back to v1 memcg for lmkd compatibility
- on GSI
+Subject: [PATCH 3/3] libprocessgroup: fall back to v1 memcg for lmkd
+ compatibility on GSI
 
 lmkd requires the memory cgroup controller in the v1 hierarchy when
 using its vmpressure-based kill strategy.  This is triggered in two
@@ -46,10 +130,10 @@ Devices with PSI and without use_minfree_levels are unaffected.
  1 file changed, 80 insertions(+)
 
 diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
-index 458e4cd..5794926 100644
+index 34a6b6e..a377341 100644
 --- a/libprocessgroup/setup/cgroup_map_write.cpp
 +++ b/libprocessgroup/setup/cgroup_map_write.cpp
-@@ -22,12 +22,15 @@
+@@ -22,13 +22,16 @@
  #include <fcntl.h>
  #include <grp.h>
  #include <pwd.h>
@@ -57,18 +141,19 @@ index 458e4cd..5794926 100644
  #include <sys/mount.h>
  #include <sys/stat.h>
  #include <sys/types.h>
+ #include <sys/utsname.h>
  #include <unistd.h>
-
+ 
 +#include <android-base/file.h>
  #include <android-base/logging.h>
 +#include <android-base/properties.h>
  #include <processgroup/cgroup_descriptor.h>
  #include <processgroup/processgroup.h>
  #include <processgroup/setup.h>
-@@ -290,6 +293,83 @@ bool CgroupSetup() {
+@@ -330,6 +333,83 @@ bool CgroupSetup() {
              return true;
          }
-
+ 
 +        // lmkd requires the memory controller in the v1 hierarchy when using its
 +        // vmpressure-based kill strategy. This happens in two cases:
 +        //
@@ -150,4 +235,5 @@ index 458e4cd..5794926 100644
              // issue a warning and proceed with the next cgroup
              LOG(WARNING) << "Failed to setup " << name << " cgroup";
 -- 
-2.53.0
+2.43.0
+
