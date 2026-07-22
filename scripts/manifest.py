@@ -13,18 +13,20 @@ logger = logging.getLogger("fuck-bpf")
 _console = Console(stderr=True, highlight=False)
 
 FAILED_PATCHES: list[str] = []
+NOT_NEEDED_PATCHES: list[str] = []
 
 SERIES_STATS: dict[str, dict[str, int]] = {}
 
 
 def reset_results() -> None:
     FAILED_PATCHES.clear()
+    NOT_NEEDED_PATCHES.clear()
     SERIES_STATS.clear()
 
 
 def record_patch_result(series_dir: str, status: str) -> None:
     if series_dir not in SERIES_STATS:
-        SERIES_STATS[series_dir] = {"applied": 0, "skipped": 0, "failed": 0}
+        SERIES_STATS[series_dir] = {"applied": 0, "skipped": 0, "failed": 0, "not_needed": 0}
     SERIES_STATS[series_dir][status] += 1
 
 
@@ -32,13 +34,26 @@ def mark_failed(patch_rel: str) -> None:
     FAILED_PATCHES.append(patch_rel)
 
 
+def mark_not_needed(patch_rel: str) -> None:
+    NOT_NEEDED_PATCHES.append(patch_rel)
+
+
 def print_failures() -> int:
-    if not FAILED_PATCHES:
-        return 0
-    _console.print()
-    _console.print("[bold yellow]Patches needing regeneration:[/]")
-    for p in FAILED_PATCHES:
-        _console.print(f"  [red]\u2717[/] {p}")
+    showed = False
+    if NOT_NEEDED_PATCHES:
+        if not showed:
+            _console.print()
+        _console.print("[bold cyan]Patches not needed for this AOSP version:[/]")
+        for p in NOT_NEEDED_PATCHES:
+            _console.print(f"  [cyan]\u26A0[/] {p}")
+        showed = True
+    if FAILED_PATCHES:
+        if not showed:
+            _console.print()
+        _console.print("[bold yellow]Patches needing regeneration:[/]")
+        for p in FAILED_PATCHES:
+            _console.print(f"  [red]\u2717[/] {p}")
+        showed = True
     return 0
 
 
@@ -50,15 +65,20 @@ def print_summary() -> None:
     table.add_column("Series", style="cyan")
     table.add_column("Applied", justify="right", style="green")
     table.add_column("Skipped", justify="right", style="yellow")
+    table.add_column("Not Needed", justify="right", style="cyan")
     table.add_column("Failed", justify="right", style="red")
-    t_a = t_s = t_f = 0
+    t_a = t_s = t_n = t_f = 0
     for sdir, stats in sorted(SERIES_STATS.items()):
-        a, s, f = stats["applied"], stats["skipped"], stats["failed"]
+        a = stats.get("applied", 0)
+        s = stats.get("skipped", 0)
+        n = stats.get("not_needed", 0)
+        f = stats.get("failed", 0)
         t_a += a
         t_s += s
+        t_n += n
         t_f += f
-        table.add_row(sdir, str(a), str(s), str(f))
-    table.add_row("Total", str(t_a), str(t_s), str(t_f), style="bold")
+        table.add_row(sdir, str(a), str(s), str(n), str(f))
+    table.add_row("Total", str(t_a), str(t_s), str(t_n), str(t_f), style="bold")
     _console.print(table)
 
 
@@ -94,8 +114,13 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
 
     git("am", "--abort", cwd=Path(repo_dir), check=False, capture=False)
     if mode != "probe":
-        mark_failed(patch_rel)
-        record_patch_result(series_dir, "failed")
+        check = git("apply", "--check", str(patch), cwd=Path(repo_dir), capture=True, check=False)
+        if check.returncode != 0 and "already exists in working directory" in check.stderr:
+            mark_not_needed(patch_rel)
+            record_patch_result(series_dir, "not_needed")
+        else:
+            mark_failed(patch_rel)
+            record_patch_result(series_dir, "failed")
     return False
 
 
