@@ -1,7 +1,7 @@
-From b83ae74b1d6ee1bb231e0680d9a68e470b23fb79 Mon Sep 17 00:00:00 2001
+From c277b88a793884619a9b3958a0d20c7ede57ae1f Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Thu, 9 Apr 2026 00:12:09 +0100
-Subject: [PATCH 2/2] sepolicy: ship plat_sepolicy_genfs_202404.cil for legacy
+Subject: [PATCH] sepolicy: ship plat_sepolicy_genfs_202404.cil for legacy
  vendor partitions
 
 get_genfs_labels_version() defaults to 202404 when the vendor partition
@@ -26,10 +26,10 @@ sysfs_mem_sleep); there were no new versioned genfs entries at the
  create mode 100644 compat/plat_sepolicy_genfs_202404.cil
 
 diff --git a/compat/Android.bp b/compat/Android.bp
-index 4a144de..d68cd7b 100644
+index be895d9b0..1a8935b4c 100644
 --- a/compat/Android.bp
 +++ b/compat/Android.bp
-@@ -660,6 +660,12 @@ se_compat_cil {
+@@ -592,6 +592,12 @@ se_compat_cil {
      version: "202404",
  }
  
@@ -44,6 +44,7 @@ index 4a144de..d68cd7b 100644
      src: "plat_sepolicy_genfs_202504.cil",
 diff --git a/compat/plat_sepolicy_genfs_202404.cil b/compat/plat_sepolicy_genfs_202404.cil
 new file mode 100644
-index 0000000..e69de29
+index 000000000..e69de29bb
 -- 
-2.53.0
+2.43.0
+

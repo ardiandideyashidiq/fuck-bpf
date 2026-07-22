@@ -1,4 +1,4 @@
-From c9dd1e6ff9096ac8d7b103e58b93babc3f4dfcad Mon Sep 17 00:00:00 2001
+From 20ec665cb41d59c82c8d6cb879ba934f0c1cf172 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Sun, 26 Apr 2026 16:30:27 +0100
 Subject: [PATCH] libprocessgroup: tolerate ENOENT on cgroup.procs write
@@ -19,7 +19,7 @@ failures non-fatal.
  1 file changed, 8 insertions(+)
 
 diff --git a/libprocessgroup/task_profiles.cpp b/libprocessgroup/task_profiles.cpp
-index 2730743..d35322c 100644
+index 273074363..d35322cfc 100644
 --- a/libprocessgroup/task_profiles.cpp
 +++ b/libprocessgroup/task_profiles.cpp
 @@ -322,6 +322,14 @@ bool SetCgroupAction::AddTidToCgroup(pid_t tid, int fd, ResourceCacheType cache_
@@ -38,4 +38,5 @@ index 2730743..d35322c 100644
      // ENOSPC is returned when cpuset cgroup that we are joining has no online cpus
      if (errno == ENOSPC && !strcmp(controller_name, "cpuset")) {
 -- 
-2.54.0
+2.43.0
+

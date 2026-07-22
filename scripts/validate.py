@@ -1,18 +1,11 @@
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 
-from scripts import SCRIPT_DIR
-
-
-def git(*args: str, cwd: str, check: bool = True) -> subprocess.CompletedProcess:
-    result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
-    if check and result.returncode != 0:
-        err = result.stderr.strip() or "unknown error"
-        raise RuntimeError(f"git {' '.join(args)} failed: {err}")
-    return result
+from scripts import MANIFEST_NAME, SCRIPT_DIR
+from scripts.git_helpers import git
+from scripts.manifest import run_manifest_series
 
 
 def main() -> int:
@@ -44,18 +37,22 @@ def main() -> int:
             git("worktree", "add", tmpdir, "HEAD", cwd=series_path)
             series_ok = True
 
-            for patch in sorted(patch_dir.glob("*.patch")):
-                result = git("apply", "--reverse", "--check", str(patch), cwd=tmpdir, check=False)
-                if result.returncode == 0:
-                    continue
+            manifest = SCRIPT_DIR / series_dir / MANIFEST_NAME
+            if manifest.exists():
+                series_ok = run_manifest_series(series_dir, tmpdir, "dry-run")
+            else:
+                for patch in sorted(patch_dir.glob("*.patch")):
+                    result = git("apply", "--reverse", "--check", str(patch), cwd=tmpdir, check=False)
+                    if result.returncode == 0:
+                        continue
 
-                result = git("am", "-3", str(patch), cwd=tmpdir, check=False)
-                if result.returncode != 0:
-                    print(f"Series failed: {series_dir}", file=sys.stderr)
-                    git("am", "--abort", cwd=tmpdir, check=False)
-                    exit_code = 1
-                    series_ok = False
-                    break
+                    result = git("am", "-3", str(patch), cwd=tmpdir, check=False)
+                    if result.returncode != 0:
+                        print(f"Series failed: {series_dir}", file=sys.stderr)
+                        git("am", "--abort", cwd=tmpdir, check=False)
+                        exit_code = 1
+                        series_ok = False
+                        break
 
             if series_ok:
                 print(f"Series applies cleanly: {series_dir}")

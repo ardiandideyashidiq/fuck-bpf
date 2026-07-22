@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scripts import STATE_FILENAME
 from scripts.core import apply_series, cleanup_series_fallback, dry_run_series, list_patch_dirs, verify_series
-from scripts.manifest import print_failures
+from scripts.manifest import print_failures, print_summary, reset_results
 from scripts.state import cleanup_from_state
 
 logger = logging.getLogger("fuck-bpf")
@@ -55,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    reset_results()
     parser = build_parser()
     args = parser.parse_args()
 
@@ -102,6 +103,7 @@ def main() -> int:
             exit_code = 1
 
     print_failures()
+    print_summary()
     return exit_code
 
 

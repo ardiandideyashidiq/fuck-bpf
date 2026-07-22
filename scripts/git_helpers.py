@@ -1,4 +1,5 @@
 import subprocess
+from functools import cache
 from pathlib import Path
 
 from scripts import SCRIPT_DIR
@@ -34,6 +35,7 @@ def patch_id_for_file(patch: Path) -> str | None:
     return result.stdout.strip().split()[0] if result.stdout.strip() else None
 
 
+@cache
 def patch_id_for_commit(repo_dir: str, commit: str) -> str | None:
     result = git("show", "--format=", commit, cwd=Path.cwd() / repo_dir, capture=True, check=False)
     if result.returncode != 0:

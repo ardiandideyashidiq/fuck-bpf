@@ -1,7 +1,7 @@
-From eb38bb8b5c72c19be8abc06686df608f8ce0d0c1 Mon Sep 17 00:00:00 2001
+From 001e30f45ebdd7f3df998aae17c74476374f6fe2 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Wed, 25 Mar 2026 09:12:44 +0000
-Subject: [PATCH 2/2] make dnsmasq communication failures non-fatal for tethering
+Subject: [PATCH] make dnsmasq communication failures non-fatal for tethering
 
 on GSI builds the modern tethering stack (NetworkStackService) provides its
 own DHCP server and DNS resolver. dnsmasq may not be running or may have
@@ -16,7 +16,7 @@ calls will succeed.
  1 file changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/server/TetherController.cpp b/server/TetherController.cpp
-index bdc10e9..2ee70af 100644
+index b159d958..925c3617 100644
 --- a/server/TetherController.cpp
 +++ b/server/TetherController.cpp
 @@ -406,9 +406,10 @@ int TetherController::setDnsForwarders(unsigned netId, char **servers, int numSe
@@ -47,4 +47,5 @@ index bdc10e9..2ee70af 100644
      return true;
  }
 -- 
-2.53.0
+2.43.0
+

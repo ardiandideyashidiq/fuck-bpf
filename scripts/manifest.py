@@ -1,5 +1,6 @@
 import logging
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -9,6 +10,19 @@ from scripts.git_helpers import git, is_patch_applied
 logger = logging.getLogger("fuck-bpf")
 
 FAILED_PATCHES: list[str] = []
+
+SERIES_STATS: dict[str, dict[str, int]] = {}
+
+
+def reset_results() -> None:
+    FAILED_PATCHES.clear()
+    SERIES_STATS.clear()
+
+
+def record_patch_result(series_dir: str, status: str) -> None:
+    if series_dir not in SERIES_STATS:
+        SERIES_STATS[series_dir] = {"applied": 0, "skipped": 0, "failed": 0}
+    SERIES_STATS[series_dir][status] += 1
 
 
 def mark_failed(patch_rel: str) -> None:
@@ -24,6 +38,24 @@ def print_failures() -> int:
     return 0
 
 
+def print_summary() -> None:
+    if not SERIES_STATS:
+        return
+    print(file=sys.stderr)
+    print("Summary", file=sys.stderr)
+    print("\u2500" * 48, file=sys.stderr)
+    print(f"{'Series':<25} {'Applied':>8} {'Skipped':>8} {'Failed':>8}", file=sys.stderr)
+    t_a = t_s = t_f = 0
+    for sdir, stats in sorted(SERIES_STATS.items()):
+        a, s, f = stats["applied"], stats["skipped"], stats["failed"]
+        t_a += a
+        t_s += s
+        t_f += f
+        print(f"{sdir:<25} {a:>8} {s:>8} {f:>8}", file=sys.stderr)
+    print("\u2500" * 48, file=sys.stderr)
+    print(f"{'Total':<25} {t_a:>8} {t_s:>8} {t_f:>8}", file=sys.stderr)
+
+
 def trim_manifest_line(line: str) -> str:
     return line.split("#")[0].strip()
 
@@ -34,11 +66,14 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
 
     if not patch.exists():
         mark_failed(patch_rel)
+        if mode != "probe":
+            record_patch_result(series_dir, "failed")
         return False
 
     if is_patch_applied(repo_dir, patch, series_dir):
         if mode != "probe":
             logger.info("Skipping duplicate patch: %s", patch_rel)
+            record_patch_result(series_dir, "skipped")
         return True
 
     result = git("am", "-3", str(patch), cwd=Path(repo_dir), check=False, capture=False)
@@ -47,11 +82,14 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
             logger.info("Applied patch: %s", patch_rel)
         elif mode == "dry-run":
             logger.info("Would apply patch: %s", patch_rel)
+        if mode != "probe":
+            record_patch_result(series_dir, "applied")
         return True
 
     git("am", "--abort", cwd=Path(repo_dir), check=False, capture=False)
     if mode != "probe":
         mark_failed(patch_rel)
+        record_patch_result(series_dir, "failed")
     return False
 
 
