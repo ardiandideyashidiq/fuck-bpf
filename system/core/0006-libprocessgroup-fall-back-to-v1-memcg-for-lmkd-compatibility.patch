@@ -1,16 +1,52 @@
-From 0d04b2f1e3e22a68f05198e6abd62beb2386b04c Mon Sep 17 00:00:00 2001
+From 83ea15c05044692344fee4cf5b593528ad54e101 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Wed, 18 Mar 2026 12:18:21 +0000
-Subject: [PATCH] libprocessgroup: fall back to v1 memcg for lmkd compatibility
+Subject: [PATCH 3/8] libprocessgroup: fall back to v1 memcg for lmkd compatibility
  on GSI
 
-Change-Id: I0f1f0da2ec6e4a2da985c141974edce4f96db41d
+lmkd requires the memory cgroup controller in the v1 hierarchy when
+using its vmpressure-based kill strategy.  This is triggered in two
+distinct cases seen on GSI builds with vendor kernels:
+
+1. Kernel lacks CONFIG_PSI: lmkd cannot open /proc/pressure/memory,
+   its PSI monitoring path fails, and the vmpressure fallback then also
+   fails because it hard-requires a v1 memcg hierarchy.
+
+2. Vendor sets ro.lmk.use_minfree_levels=true or
+   ro.lmk.use_new_strategy=false: lmkd gates itself to the old kill
+   strategy, which requires v1 memcg regardless of whether PSI is
+   available.
+
+In both cases the result is the same: lmkd exits immediately, Activity
+Manager spins in a connect-retry loop, cascading ANRs fire in SystemUI
+and com.android.phone, and the device is stuck behind FallbackHome with
+'Settings has stopped'.
+
+Fix this at the CgroupSetup() layer, which runs as PID 1 before early-
+init and before lmkd starts.
+
+Because CgroupSetup() runs before PropertyLoadBootDefaults() has
+committed vendor properties, GetBoolProperty() cannot see vendor-side
+lmk properties at this point.  Scan the same set of property files that
+PropertyLoadBootDefaults() would load (system, system_ext, vendor,
+vendor_dlkm, odm_dlkm, odm, product) in the same order, so the last
+match wins regardless of which partition sets the property.
+
+Parse line-by-line and skip comments (lines starting with #) to avoid
+false matches on commented-out properties left by post_process_props.py.
+
+When the memory controller is declared as v2 and either PSI is absent or
+the vendor forces the old kill strategy, fall back to mounting memory as
+a v1 cgroup at /dev/memcg.  lmkd's memcg_version() then returns kV1 and
+init_mp_common() succeeds.
+
+Devices with PSI and without use_minfree_levels are unaffected.
 ---
  libprocessgroup/setup/cgroup_map_write.cpp | 80 ++++++++++++++++++++++
  1 file changed, 80 insertions(+)
 
 diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
-index 458e4cddf..57949261a 100644
+index 458e4cd..5794926 100644
 --- a/libprocessgroup/setup/cgroup_map_write.cpp
 +++ b/libprocessgroup/setup/cgroup_map_write.cpp
 @@ -22,12 +22,15 @@
@@ -22,7 +58,7 @@ index 458e4cddf..57949261a 100644
  #include <sys/stat.h>
  #include <sys/types.h>
  #include <unistd.h>
- 
+
 +#include <android-base/file.h>
  #include <android-base/logging.h>
 +#include <android-base/properties.h>
@@ -32,7 +68,7 @@ index 458e4cddf..57949261a 100644
 @@ -290,6 +293,83 @@ bool CgroupSetup() {
              return true;
          }
- 
+
 +        // lmkd requires the memory controller in the v1 hierarchy when using its
 +        // vmpressure-based kill strategy. This happens in two cases:
 +        //
@@ -114,4 +150,4 @@ index 458e4cddf..57949261a 100644
              // issue a warning and proceed with the next cgroup
              LOG(WARNING) << "Failed to setup " << name << " cgroup";
 -- 
-2.43.0
+2.53.0

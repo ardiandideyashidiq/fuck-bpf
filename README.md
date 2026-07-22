@@ -41,41 +41,46 @@ Support has been added for all kernel versions: **4.4, 4.9, 4.14, and 4.19**. As
 
 ## Usage
 
-### Use Auto Patch Script
+### Use Auto Patch Script (Python)
 1. Clone this repo in root of your source tree
 2. Run command:
 ```
-./fuck-bpf/apply.sh --mb
+./fuck-bpf/apply.py --mb
 ```
 
-`apply.sh --mb` applies patches one by one and skips only patches whose diff is already present in the target tree. Patches that are stale, corrupt, or missing hunks fail with `Patch needs regeneration`.
+`apply.py --mb` applies patches one by one and skips only patches whose diff is already present in the target tree. Patches that are stale, corrupt, or missing hunks fail with `Patch needs regeneration`.
 
 To preview what will happen without modifying the source tree, run:
 ```
-./fuck-bpf/apply.sh --dry-run
+./fuck-bpf/apply.py --dry-run
 ```
 
 Dry-run reports whether each patch would apply cleanly, would be skipped as a duplicate, or needs regeneration.
 
 To verify that all target repos are clean after applying patches, run:
 ```
-./fuck-bpf/apply.sh --verify
+./fuck-bpf/apply.py --verify
 ```
 
 Verify checks each target repo for a clean working tree and confirms that no `git am` session is still in progress.
 
 If you intentionally want destructive cleanup across target repos, run:
 ```
-./fuck-bpf/apply.sh --cleanup
+./fuck-bpf/apply.py --cleanup
 ```
 
 Cleanup aborts any active `git am`, resets patched repos back to the recorded pre-apply base when available, and removes untracked and ignored files such as generated build outputs.
 
 Any missing or unknown mode now prints usage and exits non-zero instead of cleaning repos implicitly.
 
+You can also use structured JSON logging for CI:
+```
+./fuck-bpf/apply.py --log-format json --cleanup
+```
+
 To validate the patch series against a synced source tree, run:
 ```bash
-FUCK_BPF_SOURCE_ROOT=/path/to/android/source ./scripts/validate-patches.sh
+FUCK_BPF_SOURCE_ROOT=/path/to/android/source python3 ./scripts/validate.py
 ```
 
 This replays every patch series in temporary worktrees under the synced source tree and fails if any series no longer applies cleanly.
