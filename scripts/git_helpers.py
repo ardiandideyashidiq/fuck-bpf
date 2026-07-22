@@ -37,13 +37,20 @@ def patch_id_for_file(patch: Path) -> str | None:
 
 @cache
 def patch_id_for_commit(repo_dir: str, commit: str) -> str | None:
-    result = git("show", "--format=", commit, cwd=Path.cwd() / repo_dir, capture=True, check=False)
+    cmd = ["git", "show", "--format=", commit]
+    result = subprocess.run(cmd, cwd=Path.cwd() / repo_dir, capture_output=True, check=False)
     if result.returncode != 0:
         return None
-    pid = git("patch-id", "--stable", cwd=Path.cwd(), capture=True, check=False, input_text=result.stdout)
+    pid = subprocess.run(
+        ["git", "patch-id", "--stable"],
+        cwd=Path.cwd(),
+        capture_output=True,
+        input=result.stdout,
+        check=False,
+    )
     if pid.returncode != 0:
         return None
-    return pid.stdout.strip().split()[0] if pid.stdout.strip() else None
+    return pid.stdout.decode(errors="replace").strip().split()[0] if pid.stdout.strip() else None
 
 
 def is_patch_in_commit(repo_dir: str, patch: Path, commit: str) -> bool:

@@ -4,3 +4,4 @@ choice old-kernel-configs
 option existing 0003-kernel_configs-Relax-old-kernel-reqs.patch 0008-Revert-Remove-old-Android-R-kernel-configs.patch
 option restore 0004-Restore-q-android-4.9.patch 0005-Lower-q-android-4.9-requirements.patch 0006-Revert-Delete-p-android-4.4.patch 0007-kernel_configs-Remove-BPF-requirements-from-restored-q-android-4.9.patch 0008-Revert-Remove-old-Android-R-kernel-configs.patch
 endchoice
+patch 0009-added-missing-dependecies-kernel-4.14-4.19.patch
