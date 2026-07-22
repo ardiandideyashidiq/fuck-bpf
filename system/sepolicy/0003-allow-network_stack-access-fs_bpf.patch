@@ -1,0 +1,25 @@
+From 6ef8af5feac1082fca4195fceaeb6410e41e7e33 Mon Sep 17 00:00:00 2001
+From: ikanbandengultra <ikanbandengultra@users.noreply.github.com>
+Date: Wed, 22 Jul 2026 22:21:04 +0000
+Subject: [PATCH] allow network_stack to access fs_bpf file
+
+Change-Id: I11643518b6fbad1a1068db60be13e22fe237382b
+---
+ private/bpfloader.te | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/private/bpfloader.te b/private/bpfloader.te
+index 968fb03cf..9fc5e56a6 100644
+--- a/private/bpfloader.te
++++ b/private/bpfloader.te
+@@ -49,7 +49,7 @@ neverallow { domain -bpfloader } bpffs_type:dir { add_name create open read remo
+ 
+ neverallow { domain            } bpffs_type:file ~{ create getattr map open read rename setattr write };
+ neverallow { domain -bpfloader } bpffs_type:file { create map open rename setattr };
+-neverallow { domain -bpfloader -gpuservice -lmkd -mediaprovider_app -netd -netutils_wrapper                -system_server                             } fs_bpf:file                { getattr read };
++neverallow { domain -bpfloader -gpuservice -lmkd -mediaprovider_app -netd -netutils_wrapper -network_stack      -system_server                             } fs_bpf:file                { getattr read };
+ neverallow { domain -bpfloader                                                                             -system_server -traced_probes              } fs_bpf_cputimeinstate:file { getattr read write };
+ neverallow { domain -bpfloader                                                                                                                        } fs_bpf_loader:file         { getattr read };
+ neverallow { domain -bpfloader                                                              -network_stack                                            } fs_bpf_net_private:file    { getattr read };
+-- 
+2.43.0
