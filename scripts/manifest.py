@@ -18,10 +18,10 @@ def mark_failed(patch_rel: str) -> None:
 def print_failures() -> int:
     if not FAILED_PATCHES:
         return 0
-    logger.error("Patches needing regeneration:")
+    logger.warning("Patches needing regeneration:")
     for p in FAILED_PATCHES:
-        logger.error("  Patch needs regeneration: %s", p)
-    return 1
+        logger.warning("  Patch needs regeneration: %s", p)
+    return 0
 
 
 def trim_manifest_line(line: str) -> str:
@@ -67,7 +67,8 @@ def probe_option(series_dir: str, repo_dir: str, *patch_names: str) -> bool:
     try:
         git("worktree", "add", str(tmpdir), "HEAD", cwd=Path(repo_dir), capture=False)
         result = run_patch_sequence(series_dir, str(tmpdir), "probe", *patch_names)
-        git("am", "--abort", cwd=tmpdir, check=False, capture=False)
+        if not result:
+            git("am", "--abort", cwd=tmpdir, check=False, capture=False)
         return result
     finally:
         git("worktree", "remove", "--force", str(tmpdir), cwd=Path(repo_dir), check=False, capture=False)

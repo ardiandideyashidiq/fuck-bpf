@@ -1,7 +1,7 @@
-From e9e46b81f150b1340f989d9e34dcb4de7479707c Mon Sep 17 00:00:00 2001
+From 76ec54e054a9116e3f850ac09aef750e8595a8ba Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
-Date: Wed, 25 Mar 2026 09:11:50 +0000
-Subject: [PATCH 1/2] fix iptables COMMIT#PING parse error in tethering CT helper
+Date: Wed, 22 Jul 2026 22:40:22 +0000
+Subject: [PATCH] fix iptables COMMIT#PING parse error in tethering CT helper
  rules
 
 the trebledroid patch that splits FTP/PPTP conntrack helper rules into a
@@ -17,17 +17,17 @@ align v4Ftp to match, ensuring the PING sentinel lands on its own line.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/server/TetherController.cpp b/server/TetherController.cpp
-index 379c33b..bdc10e9 100644
+index 925c3617..333a4943 100644
 --- a/server/TetherController.cpp
 +++ b/server/TetherController.cpp
-@@ -728,7 +728,7 @@ int TetherController::setForwardRules(bool add, const char *intIface, const char
-                             op, LOCAL_RAW_PREROUTING, intIface),
+@@ -733,7 +733,7 @@ int TetherController::setForwardRules(bool add, const char *intIface, const char
+                          LOCAL_RAW_PREROUTING, intIface),
              StringPrintf("%s %s -p tcp --dport 1723 -i %s -j CT --helper pptp", op,
                           LOCAL_RAW_PREROUTING, intIface),
 -            "COMMIT",
 +            "COMMIT\n",
-     };
-     if(iptablesRestoreFunction(V4, Join(v4Ftp, '\n'), nullptr) == -1) {
-             ALOGE("Failed adding iptables CT target on FTP.");
+             "*filter",
+             StringPrintf("%s %s -i %s -o %s -m state --state ESTABLISHED,RELATED -g %s", op,
+                          LOCAL_FORWARD, extIface, intIface, LOCAL_TETHER_COUNTERS_CHAIN),
 -- 
-2.53.0
+2.43.0

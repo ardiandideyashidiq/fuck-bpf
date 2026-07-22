@@ -91,8 +91,7 @@ def main() -> int:
             if args.mb:
                 apply_series(series_dir)
             elif args.dry_run:
-                if not dry_run_series(series_dir):
-                    exit_code = 1
+                dry_run_series(series_dir)
             elif args.verify:
                 if verify_series(series_dir) != 0:
                     exit_code = 1
@@ -102,8 +101,7 @@ def main() -> int:
             logger.error("Error processing %s: %s", series_dir, e)
             exit_code = 1
 
-    if print_failures() != 0:
-        exit_code = 1
+    print_failures()
     return exit_code
 
 

@@ -45,7 +45,8 @@ def dry_run_series(series_dir: str) -> bool:
     try:
         git("worktree", "add", str(tmpdir), "HEAD", cwd=target_repo, capture=False)
         result = run_series_steps(series_dir, str(tmpdir), "dry-run")
-        git("am", "--abort", cwd=tmpdir, check=False, capture=False)
+        if not result:
+            git("am", "--abort", cwd=tmpdir, check=False, capture=False)
         return result
     finally:
         git("worktree", "remove", "--force", str(tmpdir), cwd=target_repo, check=False, capture=False)
