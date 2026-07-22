@@ -28,4 +28,4 @@ def test_dry_run_reports_would_apply(integration_env: tuple[Path, Path, Path]) -
 
     proc = run_apply(series_root, aosp_root, "--dry-run")
     assert proc.returncode == 0
-    assert "[INFO] Would apply patch:" in proc.stderr
+    assert "Would apply patch:" in proc.stderr

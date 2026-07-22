@@ -28,7 +28,7 @@ def test_apply_single_patch(integration_env: tuple[Path, Path, Path]) -> None:
 
     proc = run_apply(series_root, aosp_root, "--mb")
     assert proc.returncode == 0, f"stderr: {proc.stderr}"
-    assert "[INFO] Applied patch:" in proc.stderr or "Applied patch:" in proc.stderr
+    assert "Applied patch:" in proc.stderr
 
 
 def test_apply_duplicate_skip(integration_env: tuple[Path, Path, Path]) -> None:
@@ -56,4 +56,4 @@ def test_apply_duplicate_skip(integration_env: tuple[Path, Path, Path]) -> None:
     run_apply(series_root, aosp_root, "--mb")
     proc = run_apply(series_root, aosp_root, "--mb")
     assert proc.returncode == 0
-    assert "[INFO] Skipping duplicate patch:" in proc.stderr
+    assert "Skipping duplicate patch:" in proc.stderr

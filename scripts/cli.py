@@ -4,6 +4,9 @@ import logging
 import sys
 from pathlib import Path
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 from scripts import STATE_FILENAME
 from scripts.core import apply_series, cleanup_series_fallback, dry_run_series, list_patch_dirs, verify_series
 from scripts.manifest import print_failures, print_summary, reset_results
@@ -36,7 +39,16 @@ def setup_logging(verbose: bool, quiet: bool, log_json: bool = False) -> None:
         handler.setFormatter(JsonFormatter())
         root.addHandler(handler)
     else:
-        logging.basicConfig(level=level, format="[%(levelname)s] %(message)s", stream=sys.stderr)
+        console = Console(stderr=True)
+        handler = RichHandler(
+            level=level,
+            console=console,
+            show_time=False,
+            show_path=False,
+            rich_tracebacks=True,
+            tracebacks_show_locals=verbose,
+        )
+        root.addHandler(handler)
 
 
 def build_parser() -> argparse.ArgumentParser:

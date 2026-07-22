@@ -1,6 +1,7 @@
-import logging
+import io
 
 import pytest
+from rich.console import Console
 
 from scripts.manifest import (
     FAILED_PATCHES,
@@ -35,8 +36,13 @@ class TestTrimManifestLine:
 
 
 class TestReportingFunctions:
-    def setup_method(self) -> None:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
         reset_results()
+
+    def _make_console(self) -> tuple[Console, io.StringIO]:
+        buf = io.StringIO()
+        return Console(file=buf, force_terminal=True, highlight=False), buf
 
     def test_record_patch_result_initializes_series(self) -> None:
         record_patch_result("system/bpf", "applied")
@@ -61,36 +67,41 @@ class TestReportingFunctions:
         mark_failed("system/bpf/0001-foo.patch")
         assert FAILED_PATCHES == ["system/bpf/0001-foo.patch"]
 
-    def test_print_failures_empty(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level(logging.WARNING)
+    def test_print_failures_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        con, buf = self._make_console()
+        monkeypatch.setattr("scripts.manifest._console", con)
         result = print_failures()
         assert result == 0
-        assert caplog.records == []
+        assert buf.getvalue() == ""
 
-    def test_print_failures_with_failures(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level(logging.WARNING)
+    def test_print_failures_with_failures(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        con, buf = self._make_console()
+        monkeypatch.setattr("scripts.manifest._console", con)
         mark_failed("system/bpf/0001-foo.patch")
         print_failures()
-        assert any("Patches needing regeneration" in r.message for r in caplog.records)
-        assert any("system/bpf/0001-foo.patch" in r.message for r in caplog.records)
-        assert all(r.levelno == logging.WARNING for r in caplog.records)
+        output = buf.getvalue()
+        assert "Patches needing regeneration" in output
+        assert "system/bpf/0001-foo.patch" in output
 
-    def test_print_summary_empty(self, capsys: pytest.CaptureFixture) -> None:
+    def test_print_summary_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        con, buf = self._make_console()
+        monkeypatch.setattr("scripts.manifest._console", con)
         print_summary()
-        captured = capsys.readouterr()
-        assert captured.err == ""
+        assert buf.getvalue() == ""
 
-    def test_print_summary_with_data(self, capsys: pytest.CaptureFixture) -> None:
+    def test_print_summary_with_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        con, buf = self._make_console()
+        monkeypatch.setattr("scripts.manifest._console", con)
         record_patch_result("system/bpf", "applied")
         record_patch_result("system/bpf", "skipped")
         record_patch_result("system/netd", "failed")
         print_summary()
-        captured = capsys.readouterr()
-        assert "Summary" in captured.err
-        assert "system/bpf" in captured.err
-        assert "system/netd" in captured.err
-        assert "Total" in captured.err
-        assert "1" in captured.err
+        output = buf.getvalue()
+        assert "Patch Series Summary" in output
+        assert "system/bpf" in output
+        assert "system/netd" in output
+        assert "Total" in output
+        assert "1" in output
 
     def test_reset_results(self) -> None:
         record_patch_result("system/bpf", "applied")

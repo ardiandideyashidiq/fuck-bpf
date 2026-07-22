@@ -3,9 +3,13 @@ import shutil
 import sys
 import tempfile
 
+from rich.console import Console
+
 from scripts import MANIFEST_NAME, SCRIPT_DIR
 from scripts.git_helpers import git
 from scripts.manifest import run_manifest_series
+
+console = Console(stderr=True)
 
 
 def main() -> int:
@@ -14,12 +18,12 @@ def main() -> int:
         source_root = sys.argv[1]
 
     if not source_root:
-        print("Usage: scripts/validate-patches.py <synced-source-root>", file=sys.stderr)
+        console.print("[bold red]Usage:[/] scripts/validate-patches.py <synced-source-root>")
         return 1
 
     source_root = os.path.abspath(source_root)
     if not os.path.isdir(source_root):
-        print(f"Synced source root not found: {source_root}", file=sys.stderr)
+        console.print(f"[bold red]Synced source root not found:[/] {source_root}")
         return 1
 
     exit_code = 0
@@ -28,7 +32,7 @@ def main() -> int:
         series_path = os.path.join(source_root, series_dir)
 
         if not os.path.isdir(series_path):
-            print(f"Series missing source repo: {series_dir}", file=sys.stderr)
+            console.print(f"[bold red]Series missing source repo:[/] {series_dir}")
             exit_code = 1
             continue
 
@@ -48,14 +52,14 @@ def main() -> int:
 
                     result = git("am", "-3", str(patch), cwd=tmpdir, check=False)
                     if result.returncode != 0:
-                        print(f"Series failed: {series_dir}", file=sys.stderr)
+                        console.print(f"[bold red]\u2717[/] Series failed: {series_dir}")
                         git("am", "--abort", cwd=tmpdir, check=False)
                         exit_code = 1
                         series_ok = False
                         break
 
             if series_ok:
-                print(f"Series applies cleanly: {series_dir}")
+                console.print(f"[bold green]\u2713[/] Series applies cleanly: {series_dir}")
 
         finally:
             git("worktree", "remove", "--force", tmpdir, cwd=series_path, check=False)

@@ -3,12 +3,15 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from rich.console import Console
+
 from scripts import SCRIPT_DIR
 from scripts.git_helpers import git, is_series_patch_in_repo
 from scripts.manifest import run_manifest_series, run_patch_on_repo
 from scripts.state import cleanup_worktree, record_base
 
 logger = logging.getLogger("fuck-bpf")
+_console = Console(stderr=True)
 
 
 def list_patch_dirs() -> list[str]:
@@ -56,7 +59,7 @@ def dry_run_series(series_dir: str) -> bool:
 
 def verify_series(series_dir: str) -> int:
     repo = Path.cwd() / series_dir
-    logger.info("== %s ==", series_dir)
+    _console.rule(series_dir, align="left")
 
     status = git("status", "--short", cwd=repo).stdout.strip()
     if status:

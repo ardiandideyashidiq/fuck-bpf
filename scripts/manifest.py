@@ -1,13 +1,16 @@
 import logging
 import shutil
-import sys
 import tempfile
 from pathlib import Path
+
+from rich.console import Console
+from rich.table import Table
 
 from scripts import MANIFEST_NAME, SCRIPT_DIR
 from scripts.git_helpers import git, is_patch_applied
 
 logger = logging.getLogger("fuck-bpf")
+_console = Console(stderr=True, highlight=False)
 
 FAILED_PATCHES: list[str] = []
 
@@ -32,28 +35,31 @@ def mark_failed(patch_rel: str) -> None:
 def print_failures() -> int:
     if not FAILED_PATCHES:
         return 0
-    logger.warning("Patches needing regeneration:")
+    _console.print()
+    _console.print("[bold yellow]Patches needing regeneration:[/]")
     for p in FAILED_PATCHES:
-        logger.warning("  Patch needs regeneration: %s", p)
+        _console.print(f"  [red]\u2717[/] {p}")
     return 0
 
 
 def print_summary() -> None:
     if not SERIES_STATS:
         return
-    print(file=sys.stderr)
-    print("Summary", file=sys.stderr)
-    print("\u2500" * 48, file=sys.stderr)
-    print(f"{'Series':<25} {'Applied':>8} {'Skipped':>8} {'Failed':>8}", file=sys.stderr)
+    _console.print()
+    table = Table(title="Patch Series Summary")
+    table.add_column("Series", style="cyan")
+    table.add_column("Applied", justify="right", style="green")
+    table.add_column("Skipped", justify="right", style="yellow")
+    table.add_column("Failed", justify="right", style="red")
     t_a = t_s = t_f = 0
     for sdir, stats in sorted(SERIES_STATS.items()):
         a, s, f = stats["applied"], stats["skipped"], stats["failed"]
         t_a += a
         t_s += s
         t_f += f
-        print(f"{sdir:<25} {a:>8} {s:>8} {f:>8}", file=sys.stderr)
-    print("\u2500" * 48, file=sys.stderr)
-    print(f"{'Total':<25} {t_a:>8} {t_s:>8} {t_f:>8}", file=sys.stderr)
+        table.add_row(sdir, str(a), str(s), str(f))
+    table.add_row("Total", str(t_a), str(t_s), str(t_f), style="bold")
+    _console.print(table)
 
 
 def trim_manifest_line(line: str) -> str:
