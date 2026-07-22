@@ -38,6 +38,33 @@ def mark_not_needed(patch_rel: str) -> None:
     NOT_NEEDED_PATCHES.append(patch_rel)
 
 
+def _patch_added_lines_present(repo_dir: str, patch: Path) -> bool:
+    try:
+        text = patch.read_text()
+    except OSError:
+        return False
+    current_file = None
+    added: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line[6:]
+            added.setdefault(current_file, [])
+        elif line.startswith("+") and not line.startswith("+++") and current_file:
+            added[current_file].append(line[1:])
+    for filepath, lines in added.items():
+        target = Path(repo_dir) / filepath
+        if not target.exists():
+            return False
+        try:
+            content = target.read_text()
+        except OSError:
+            return False
+        for added_line in lines:
+            if added_line not in content:
+                return False
+    return True
+
+
 def print_failures() -> int:
     showed = False
     if NOT_NEEDED_PATCHES:
@@ -115,7 +142,16 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
     git("am", "--abort", cwd=Path(repo_dir), check=False, capture=False)
     if mode != "probe":
         check = git("apply", "--check", str(patch), cwd=Path(repo_dir), capture=True, check=False)
+        not_needed = False
         if check.returncode != 0 and "already exists in working directory" in check.stderr:
+            not_needed = True
+        else:
+            rev = git("apply", "--reverse", "--check", "-3", str(patch), cwd=Path(repo_dir), capture=True, check=False)
+            if rev.returncode == 0:
+                not_needed = True
+            else:
+                not_needed = _patch_added_lines_present(repo_dir, patch)
+        if not_needed:
             mark_not_needed(patch_rel)
             record_patch_result(series_dir, "not_needed")
         else:
