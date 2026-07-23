@@ -12,11 +12,17 @@ def state_path() -> Path:
     return Path.cwd() / STATE_FILENAME
 
 
-def has_series(series_dir: str) -> bool:
-    sp = state_path()
+def _read_state(sp: Path) -> dict:
     if not sp.exists():
-        return False
-    data = json.loads(sp.read_text())
+        return {}
+    try:
+        return json.loads(sp.read_text())
+    except json.JSONDecodeError:
+        return {}
+
+
+def has_series(series_dir: str) -> bool:
+    data = _read_state(state_path())
     return series_dir in data.get("series", {})
 
 
@@ -24,9 +30,7 @@ def record_base(series_dir: str) -> None:
     if has_series(series_dir):
         return
     sp = state_path()
-    data = {}
-    if sp.exists():
-        data = json.loads(sp.read_text())
+    data = _read_state(sp)
     if "series" not in data:
         data["series"] = {}
     head = git("rev-parse", "HEAD", cwd=Path.cwd() / series_dir).stdout.strip()
@@ -54,9 +58,10 @@ def cleanup_to_base(series_dir: str, base: str) -> bool:
 
 def cleanup_from_state() -> int:
     sp = state_path()
-    if not sp.exists():
+    data = _read_state(sp)
+    if not data:
+        sp.unlink(missing_ok=True)
         return 0
-    data = json.loads(sp.read_text())
     exit_code = 0
     for series_dir, base in data.get("series", {}).items():
         logger.info("Using recorded cleanup state for %s", series_dir)
