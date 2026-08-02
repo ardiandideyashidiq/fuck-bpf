@@ -3,14 +3,10 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from rich.console import Console
-from rich.table import Table
-
-from scripts import MANIFEST_NAME, SCRIPT_DIR
+from scripts import MANIFEST_NAME, SCRIPT_DIR, reporting
 from scripts.git_helpers import git, is_patch_applied
 
 logger = logging.getLogger("fuck-bpf")
-_console = Console(stderr=True, highlight=False)
 
 FAILED_PATCHES: list[str] = []
 NOT_NEEDED_PATCHES: list[str] = []
@@ -73,34 +69,24 @@ def _patch_change_already_present(repo_dir: str, patch: Path) -> bool:
 
 
 def print_failures() -> int:
-    showed = False
     if NOT_NEEDED_PATCHES:
-        if not showed:
-            _console.print()
-        _console.print("[bold cyan]Patches not needed for this AOSP version:[/]")
+        reporting.blank()
+        reporting.print_line("[bold cyan]Patches not needed for this AOSP version:[/]")
         for p in NOT_NEEDED_PATCHES:
-            _console.print(f"  [cyan]\u26a0[/] {p}")
-        showed = True
+            reporting.print_line(f"  - {p}")
     if FAILED_PATCHES:
-        if not showed:
-            _console.print()
-        _console.print("[bold yellow]Patches needing regeneration:[/]")
+        reporting.blank()
+        reporting.print_line("[bold yellow]Patches needing regeneration:[/]")
         for p in FAILED_PATCHES:
-            _console.print(f"  [red]\u2717[/] {p}")
-        showed = True
+            reporting.print_line(f"  x {p}")
     return 0
 
 
 def print_summary() -> None:
     if not SERIES_STATS:
         return
-    _console.print()
-    table = Table(title="Patch Series Summary")
-    table.add_column("Series", style="cyan")
-    table.add_column("Applied", justify="right", style="green")
-    table.add_column("Skipped", justify="right", style="yellow")
-    table.add_column("Not Needed", justify="right", style="cyan")
-    table.add_column("Failed", justify="right", style="red")
+    reporting.blank()
+    reporting.print_line("Patch Series Summary")
     t_a = t_s = t_n = t_f = 0
     for sdir, stats in sorted(SERIES_STATS.items()):
         a = stats.get("applied", 0)
@@ -111,9 +97,8 @@ def print_summary() -> None:
         t_s += s
         t_n += n
         t_f += f
-        table.add_row(sdir, str(a), str(s), str(n), str(f))
-    table.add_row("Total", str(t_a), str(t_s), str(t_n), str(t_f), style="bold")
-    _console.print(table)
+        reporting.print_line(f"  {sdir}: {a} applied, {s} skipped, {n} not needed, {f} failed")
+    reporting.print_line(f"  Total: {t_a} applied, {t_s} skipped, {t_n} not needed, {t_f} failed")
 
 
 def trim_manifest_line(line: str) -> str:

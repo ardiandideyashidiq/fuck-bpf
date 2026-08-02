@@ -4,10 +4,7 @@ import logging
 import sys
 from pathlib import Path
 
-from rich.console import Console
-from rich.logging import RichHandler
-
-from scripts import STATE_FILENAME
+from scripts import STATE_FILENAME, reporting
 from scripts.core import apply_series, cleanup_series_fallback, dry_run_series, list_patch_dirs, verify_series
 from scripts.manifest import print_failures, print_summary, reset_results
 from scripts.state import cleanup_from_state
@@ -15,7 +12,7 @@ from scripts.state import cleanup_from_state
 logger = logging.getLogger("fuck-bpf")
 
 
-def setup_logging(verbose: bool, quiet: bool, log_json: bool = False) -> None:
+def setup_logging(verbose: bool, quiet: bool, log_json: bool = False, rich: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO
 
     root = logging.getLogger("fuck-bpf")
@@ -38,16 +35,13 @@ def setup_logging(verbose: bool, quiet: bool, log_json: bool = False) -> None:
 
         handler.setFormatter(JsonFormatter())
         root.addHandler(handler)
+    elif rich:
+        from scripts.rich_output import make_logging_handler
+
+        root.addHandler(make_logging_handler(level, verbose))
     else:
-        console = Console(stderr=True)
-        handler = RichHandler(
-            level=level,
-            console=console,
-            show_time=False,
-            show_path=False,
-            rich_tracebacks=True,
-            tracebacks_show_locals=verbose,
-        )
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(logging.Formatter("%(levelname)-8s%(message)s"))
         root.addHandler(handler)
 
 
@@ -66,12 +60,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def main(rich: bool = False) -> int:
     reset_results()
+    if rich:
+        from scripts.rich_output import RichReporter
+
+        reporting.set_reporter(RichReporter())
+
     parser = build_parser()
     args = parser.parse_args()
 
-    setup_logging(args.verbose, args.quiet, args.log_format == "json")
+    setup_logging(args.verbose, args.quiet, args.log_format == "json", rich=rich)
 
     mode_count = sum([args.mb, args.dry_run, args.verify, args.cleanup])
     if mode_count == 0:

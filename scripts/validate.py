@@ -3,13 +3,9 @@ import shutil
 import sys
 import tempfile
 
-from rich.console import Console
-
-from scripts import MANIFEST_NAME, SCRIPT_DIR
+from scripts import MANIFEST_NAME, SCRIPT_DIR, reporting
 from scripts.git_helpers import git
-from scripts.manifest import _patch_change_already_present, run_manifest_series
-
-console = Console(stderr=True)
+from scripts.manifest import run_manifest_series
 
 
 def main() -> int:
@@ -18,12 +14,12 @@ def main() -> int:
         source_root = sys.argv[1]
 
     if not source_root:
-        console.print("[bold red]Usage:[/] scripts/validate-patches.py <synced-source-root>")
+        reporting.print_line("[bold red]Usage:[/] scripts/validate-patches.py <synced-source-root>")
         return 1
 
     source_root = os.path.abspath(source_root)
     if not os.path.isdir(source_root):
-        console.print(f"[bold red]Synced source root not found:[/] {source_root}")
+        reporting.print_line(f"[bold red]Synced source root not found:[/] {source_root}")
         return 1
 
     exit_code = 0
@@ -32,7 +28,7 @@ def main() -> int:
         series_path = os.path.join(source_root, series_dir)
 
         if not os.path.isdir(series_path):
-            console.print(f"[bold red]Series missing source repo:[/] {series_dir}")
+            reporting.print_line(f"[bold red]Series missing source repo:[/] {series_dir}")
             exit_code = 1
             continue
 
@@ -52,17 +48,14 @@ def main() -> int:
 
                     result = git("am", "-3", str(patch), cwd=tmpdir, check=False)
                     if result.returncode != 0:
+                        reporting.print_line(f"[bold red]\u2717[/] Series failed: {series_dir}")
                         git("am", "--abort", cwd=tmpdir, check=False)
-                        if _patch_change_already_present(str(tmpdir), patch):
-                            console.print(f"[bold yellow]\u26a0[/] Patch not needed: {series_dir}/{patch.name}")
-                            continue
-                        console.print(f"[bold red]\u2717[/] Series failed: {series_dir}")
                         exit_code = 1
                         series_ok = False
                         break
 
             if series_ok:
-                console.print(f"[bold green]\u2713[/] Series applies cleanly: {series_dir}")
+                reporting.print_line(f"[bold green]\u2713[/] Series applies cleanly: {series_dir}")
 
         finally:
             git("worktree", "remove", "--force", tmpdir, cwd=series_path, check=False)
