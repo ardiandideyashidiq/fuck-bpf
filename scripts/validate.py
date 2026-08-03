@@ -7,7 +7,7 @@ from rich.console import Console
 
 from scripts import MANIFEST_NAME, SCRIPT_DIR
 from scripts.git_helpers import git
-from scripts.manifest import run_manifest_series
+from scripts.manifest import _patch_change_already_present, run_manifest_series
 
 console = Console(stderr=True)
 
@@ -52,8 +52,11 @@ def main() -> int:
 
                     result = git("am", "-3", str(patch), cwd=tmpdir, check=False)
                     if result.returncode != 0:
-                        console.print(f"[bold red]\u2717[/] Series failed: {series_dir}")
                         git("am", "--abort", cwd=tmpdir, check=False)
+                        if _patch_change_already_present(str(tmpdir), patch):
+                            console.print(f"[bold yellow]\u26a0[/] Patch not needed: {series_dir}/{patch.name}")
+                            continue
+                        console.print(f"[bold red]\u2717[/] Series failed: {series_dir}")
                         exit_code = 1
                         series_ok = False
                         break

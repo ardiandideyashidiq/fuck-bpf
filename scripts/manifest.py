@@ -38,20 +38,24 @@ def mark_not_needed(patch_rel: str) -> None:
     NOT_NEEDED_PATCHES.append(patch_rel)
 
 
-def _patch_added_lines_present(repo_dir: str, patch: Path) -> bool:
+def _patch_change_already_present(repo_dir: str, patch: Path) -> bool:
     try:
         text = patch.read_text()
     except OSError:
         return False
     current_file = None
     added: dict[str, list[str]] = {}
+    removed: dict[str, list[str]] = {}
     for line in text.splitlines():
         if line.startswith("+++ b/"):
             current_file = line[6:]
             added.setdefault(current_file, [])
+            removed.setdefault(current_file, [])
         elif line.startswith("+") and not line.startswith("+++") and current_file:
             added[current_file].append(line[1:])
-    for filepath, lines in added.items():
+        elif line.startswith("-") and not line.startswith("--") and current_file:
+            removed[current_file].append(line[1:])
+    for filepath, added_lines in added.items():
         target = Path(repo_dir) / filepath
         if not target.exists():
             return False
@@ -59,9 +63,12 @@ def _patch_added_lines_present(repo_dir: str, patch: Path) -> bool:
             content = target.read_text()
         except OSError:
             return False
-        for added_line in lines:
-            if added_line not in content:
-                return False
+        if all(line in content for line in added_lines):
+            continue
+        removed_lines = removed.get(filepath, [])
+        if removed_lines and all(line not in content for line in removed_lines):
+            continue
+        return False
     return True
 
 
@@ -72,7 +79,7 @@ def print_failures() -> int:
             _console.print()
         _console.print("[bold cyan]Patches not needed for this AOSP version:[/]")
         for p in NOT_NEEDED_PATCHES:
-            _console.print(f"  [cyan]\u26A0[/] {p}")
+            _console.print(f"  [cyan]\u26a0[/] {p}")
         showed = True
     if FAILED_PATCHES:
         if not showed:
@@ -150,7 +157,7 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
             if rev.returncode == 0:
                 not_needed = True
             else:
-                not_needed = _patch_added_lines_present(repo_dir, patch)
+                not_needed = _patch_change_already_present(repo_dir, patch)
         if not_needed:
             mark_not_needed(patch_rel)
             record_patch_result(series_dir, "not_needed")
