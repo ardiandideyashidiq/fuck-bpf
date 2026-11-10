@@ -1,7 +1,7 @@
-From c9ee41d8ef0ece5b1c3a8410c020bdaa7ebc3754 Mon Sep 17 00:00:00 2001
+From 23ba3e752d35a8c1ab7cec83ab65690d6ce87975 Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Wed, 13 Oct 2021 10:56:52 -0400
-Subject: [PATCH 3/4] Support no-bpf usecase
+Subject: [PATCH] Support no-bpf usecase
 
 Change-Id: I75a427a2a41aa4ab1104ad88a891bef0dc2d9c91
 ---
@@ -9,18 +9,18 @@ Change-Id: I75a427a2a41aa4ab1104ad88a891bef0dc2d9c91
  1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/loader/Loader.cpp b/loader/Loader.cpp
-index cde6447..6303d30 100644
+index 51e9d92..5b6e88c 100644
 --- a/loader/Loader.cpp
 +++ b/loader/Loader.cpp
-@@ -689,8 +689,7 @@ void vendorBpfLoader() {
-         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
-               "problems or startup script race.");
-         ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
--        sleep(20);
--        exit(121);
-+        return;
+@@ -1022,8 +1022,7 @@ void legacyBpfLoader() {
+             ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+                   "problems or startup script race.");
+             ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-            sleep(20);
+-            exit(121);
++            return;
+         }
      }
- 
-     const char* args[] = {"/apex/com.android.tethering/bin/netbpfload", "done", NULL};
+ }
 -- 
-2.54.0
+2.56.0

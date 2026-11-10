@@ -1,27 +1,28 @@
-From 8eac18b94509ecabce362315f6c0162d1a6fca02 Mon Sep 17 00:00:00 2001
+From 9da2fa6aa0fd99bf127bfe358fc96b8e1820cbe1 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 15:00:29 +0700
-Subject: [PATCH] NetBpfLoad: treat non-optional program load failures as
+Subject: [PATCH] NetBpfLoad: treat non-optional program load failures as 
  non-fatal
 
+Change-Id: Ia4807e81a8c77ab67976aadf46c8f7299890d2a0
 ---
  bpf/loader/NetBpfLoad.cpp | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
-index 716e0c81b1..8e7a1925c9 100644
+index 0e871eb..0fa3090 100644
 --- a/bpf/loader/NetBpfLoad.cpp
 +++ b/bpf/loader/NetBpfLoad.cpp
-@@ -1135,7 +1135,9 @@ static int loadCodeSections(ElfObject& elfObj, vector<codeSection>& cs, const st
-                           cs[i].prog_def->name());
+@@ -1051,7 +1051,9 @@ static int loadCodeSections(const char* elfPath, vector<codeSection>& cs, const
+                           cs[i].name.c_str());
                      continue;
                  }
--                ALOGE("non-optional program %s failed to load.", cs[i].prog_def->name());
+-                ALOGE("non-optional program %s failed to load.", cs[i].name.c_str());
 +                ALOGW("non-optional program %s failed to load, continuing anyway",
-+                      cs[i].prog_def->name());
++                      cs[i].name.c_str());
 +                continue;
              }
          }
  
 -- 
-2.54.0
+2.56.0

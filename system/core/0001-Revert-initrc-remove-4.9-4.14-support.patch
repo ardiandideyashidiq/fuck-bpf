@@ -1,4 +1,4 @@
-From 9c62d94f1e474922318b50f8db522c116236c542 Mon Sep 17 00:00:00 2001
+From fb30bb84cac55e5ac6350c7569b42d1011760b84 Mon Sep 17 00:00:00 2001
 From: Ido Ben-Hur <idoybh2@gmail.com>
 Date: Fri, 6 Sep 2024 15:32:41 +0300
 Subject: [PATCH] Revert "init.rc: remove 4.9/4.14 support"
@@ -12,11 +12,11 @@ Signed-off-by: Pranav Vashi <neobuddy89@gmail.com>
  1 file changed, 4 insertions(+)
 
 diff --git a/rootdir/init.rc b/rootdir/init.rc
-index 70db67421fe7..92dcdd0131a4 100644
+index 0cc1297..a46b094 100644
 --- a/rootdir/init.rc
 +++ b/rootdir/init.rc
-@@ -682,6 +682,10 @@ on late-fs
-     class_start early_hal
+@@ -675,6 +675,10 @@ on late-fs
+     exec -- /system/bin/fsverity_init --load-verified-keys
  
  # Only enable the bootreceiver tracing instance for kernels 5.10 and above.
 +on late-fs && property:ro.kernel.version=4.9
@@ -26,3 +26,5 @@ index 70db67421fe7..92dcdd0131a4 100644
  on late-fs && property:ro.kernel.version=4.19
      setprop bootreceiver.enable 0
  on late-fs && property:ro.kernel.version=5.4
+-- 
+2.56.0

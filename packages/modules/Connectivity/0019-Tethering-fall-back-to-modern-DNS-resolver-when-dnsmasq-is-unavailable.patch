@@ -1,4 +1,4 @@
-From e78a106f7dc5b5c3b50661785de4288d7cc795ff Mon Sep 17 00:00:00 2001
+From c606e5950490752ba7e275c853f35e75e24863cf Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Sun, 26 Apr 2026 16:07:16 +0100
 Subject: [PATCH] tethering: default to modern DNS resolver instead of dnsmasq
@@ -13,16 +13,15 @@ This removes the need for the fallback patch that retries on dnsmasq
 failure, since we now take the modern path from the start.
 
 Issue: #14
-
 ---
- .../src/com/android/networkstack/tethering/Tethering.java   | 4 ++--
+ .../src/com/android/networkstack/tethering/Tethering.java     | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Tethering/src/com/android/networkstack/tethering/Tethering.java b/Tethering/src/com/android/networkstack/tethering/Tethering.java
-index ed4752262a..c1c44f9 100644
+index b949587..4dfb4cf 100644
 --- a/Tethering/src/com/android/networkstack/tethering/Tethering.java
 +++ b/Tethering/src/com/android/networkstack/tethering/Tethering.java
-@@ -2070,12 +2070,12 @@ public class Tethering {
+@@ -1846,12 +1846,12 @@ public class Tethering {
              final String[] dhcpRanges = cfg.useLegacyDhcpServer()
                      ? cfg.legacyDhcpRanges : new String[0];
              try {
@@ -37,8 +36,5 @@ index ed4752262a..c1c44f9 100644
                  } catch (RemoteException | ServiceSpecificException ee) {
                      mLog.e(ee);
                      transitionTo(mStartTetheringErrorState);
-                     return false;
-                 }
-             }
---
-2.54.0
+-- 
+2.56.0

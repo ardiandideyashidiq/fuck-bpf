@@ -1,60 +1,22 @@
-From bca502dbf3adf0d8fa66eecc3c5f60fc986629bb Mon Sep 17 00:00:00 2001
+From c33b353ca05562813f89fc03b431bc9ab64c9f66 Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Wed, 29 Apr 2026 22:57:18 +0700
 Subject: [PATCH] kernel_configs: Lower 4.19 requirements to 4.19.127
 
 Change-Id: I8773a0ea10a0da3230d00115d86c5f0046fa37c2
 ---
- s/android-4.19/android-base-conditional.xml | 26 +--------------------
- 1 file changed, 1 insertion(+), 25 deletions(-)
+ s/android-4.19/android-base-conditional.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/s/android-4.19/android-base-conditional.xml b/s/android-4.19/android-base-conditional.xml
-index fa5515b..24e2b47 100644
+index c7de80c..87efc0a 100644
 --- a/s/android-4.19/android-base-conditional.xml
 +++ b/s/android-4.19/android-base-conditional.xml
 @@ -1,4 +1,4 @@
--<kernel minlts="4.19.325" />
+-<kernel minlts="4.19.191" />
 +<kernel minlts="4.19.127" />
  
  <!-- KEEP ALPHABETICALLY SORTED -->
  <!-- ARM base requirements -->
-@@ -63,18 +63,6 @@
- 		<key>CONFIG_BPF_JIT_ALWAYS_ON</key>
- 		<value type="bool">y</value>
- 	</config>
--	<config>
--		<key>CONFIG_HAVE_MOVE_PMD</key>
--		<value type="bool">y</value>
--	</config>
--	<config>
--		<key>CONFIG_HAVE_MOVE_PUD</key>
--		<value type="bool">y</value>
--	</config>
--	<config>
--		<key>CONFIG_USERFAULTFD</key>
--		<value type="bool">y</value>
--	</config>
- </group>
- 
- <!-- x86 base requirements -->
-@@ -97,18 +85,6 @@
- 		<key>CONFIG_RETPOLINE</key>
- 		<value type="bool">y</value>
- 	</config>
--	<config>
--		<key>CONFIG_HAVE_MOVE_PMD</key>
--		<value type="bool">y</value>
--	</config>
--	<config>
--		<key>CONFIG_HAVE_MOVE_PUD</key>
--		<value type="bool">y</value>
--	</config>
--	<config>
--		<key>CONFIG_USERFAULTFD</key>
--		<value type="bool">y</value>
--	</config>
- 	<config>
- 		<key>CONFIG_BPF_JIT_ALWAYS_ON</key>
- 		<value type="bool">y</value>
 -- 
-2.54.0
+2.56.0

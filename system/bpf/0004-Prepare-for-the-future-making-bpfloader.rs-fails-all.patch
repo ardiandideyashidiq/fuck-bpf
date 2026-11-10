@@ -1,4 +1,4 @@
-From 8b2564f60bfe5c16374878669a396e7389f68e69 Mon Sep 17 00:00:00 2001
+From 3738bb37d36dc7f0d06b0f7cc7036845be67e403 Mon Sep 17 00:00:00 2001
 From: Pierre-Hugues Husson <phh@phh.me>
 Date: Mon, 16 Jun 2025 16:24:19 -0400
 Subject: [PATCH] Prepare for the future: making bpfloader.rs fails all
@@ -10,10 +10,10 @@ Change-Id: I79d413dc4b7626e2a196317e4e58572f61863a30
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
-index 86ec011..2967b76 100644
+index 48f7319..68d9635 100644
 --- a/loader/bpfloader.rs
 +++ b/loader/bpfloader.rs
-@@ -654,9 +654,9 @@ fn load_libbpf_progs() {
+@@ -267,9 +267,9 @@ fn load_libbpf_progs() {
      for file_desc in FILE_ARR {
          if let Err(e) = libbpf_worker(file_desc) {
              if file_desc.critical {
@@ -26,5 +26,4 @@ index 86ec011..2967b76 100644
          };
      }
 -- 
-2.43.0
-
+2.56.0

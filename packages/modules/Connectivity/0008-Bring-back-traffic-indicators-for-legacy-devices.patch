@@ -1,7 +1,7 @@
-From d7b1642749b0c743726656766f8fc8897884562f Mon Sep 17 00:00:00 2001
+From 55d53010bcc4a6b07577c935bc53b926b606e85c Mon Sep 17 00:00:00 2001
 From: koron393 <koron393@gmail.com>
 Date: Fri, 20 Jan 2023 05:41:13 +0900
-Subject: [PATCH 8/8] Bring back traffic indicators for legacy devices
+Subject: [PATCH] Bring back traffic indicators for legacy devices
 
 Revert: "remove qtaguid parsing"
 (commit 0b99c46bcde8e607d9233c474035da95ab68a6fe.)
@@ -12,24 +12,32 @@ This fixes traffic indicator on BPF-less kernel.
 Change-Id: I65c626c1c5832d81805c45c53b021236fe09030b
 Signed-off-by: koron393 <koron393@gmail.com>
 ---
- ...android_server_net_NetworkStatsService.cpp | 102 ++++++++++++++++--
- 1 file changed, 96 insertions(+), 6 deletions(-)
+ ...android_server_net_NetworkStatsService.cpp | 85 ++++++++++++++++++-
+ 1 file changed, 82 insertions(+), 3 deletions(-)
 
 diff --git a/service-t/jni/com_android_server_net_NetworkStatsService.cpp b/service-t/jni/com_android_server_net_NetworkStatsService.cpp
-index a724f3fbe3..3a22826307 100644
+index c999398..56d4bff 100644
 --- a/service-t/jni/com_android_server_net_NetworkStatsService.cpp
 +++ b/service-t/jni/com_android_server_net_NetworkStatsService.cpp
-@@ -49,6 +49,9 @@ static struct {
-     jfieldID txPackets;
- } gNetworkStatsEntry;
+@@ -23,6 +23,7 @@
+ #include <inttypes.h>
+ #include <jni.h>
+ #include <nativehelper/ScopedUtfChars.h>
++#include <stdio.h>
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ #include <utils/Log.h>
+@@ -39,6 +40,9 @@ using android::bpf::NetworkTraceHandler;
+ 
+ namespace android {
  
 +static const char* QTAGUID_IFACE_STATS = "/proc/net/xt_qtaguid/iface_stat_fmt";
 +static const char* QTAGUID_UID_STATS = "/proc/net/xt_qtaguid/stats";
 +
  static void nativeRegisterIface(JNIEnv* env, jclass clazz, jstring iface) {
      ScopedUtfChars iface8(env, iface);
-     if (!iface8.c_str()) return;
-@@ -69,10 +72,81 @@ static jobject statsValueToEntry(JNIEnv* env, StatsValue* stats) {
+     if (iface8.c_str() == nullptr) return;
+@@ -73,13 +77,80 @@ static jobject statsValueToEntry(JNIEnv* env, StatsValue* stats) {
      return result;
  }
  
@@ -98,55 +106,44 @@ index a724f3fbe3..3a22826307 100644
 +
  static jobject nativeGetTotalStat(JNIEnv* env, jclass clazz) {
      StatsValue stats = {};
--    if (bpfGetIfaceStats(nullptr, &stats)) return nullptr;
--    return statsValueToEntry(env, &stats);
-+
-+    if (bpfGetIfaceStats(nullptr, &stats) == 0) {
-+        return statsValueToEntry(env, &stats);
-+    } else {
+ 
+     if (bpfGetIfaceStats(nullptr, &stats) == 0) {
+         return statsValueToEntry(env, &stats);
+     } else {
+-        return nullptr;
 +        if (parseIfaceStats(nullptr, &stats) == 0) {
 +            return statsValueToEntry(env, &stats);
 +        } else {
 +            return nullptr;
 +        }
-+    }
+     }
  }
  
- static jobject nativeGetIfaceStat(JNIEnv* env, jclass clazz, jstring iface) {
-@@ -80,14 +154,30 @@ static jobject nativeGetIfaceStat(JNIEnv* env, jclass clazz, jstring iface) {
-     if (!iface8.c_str()) return nullptr;
- 
-     StatsValue stats = {};
--    if (bpfGetIfaceStats(iface8.c_str(), &stats)) return nullptr;
--    return statsValueToEntry(env, &stats);
-+
-+    if (bpfGetIfaceStats(iface8.c_str(), &stats) == 0) {
-+        return statsValueToEntry(env, &stats);
-+    } else {
+@@ -94,7 +165,11 @@ static jobject nativeGetIfaceStat(JNIEnv* env, jclass clazz, jstring iface) {
+     if (bpfGetIfaceStats(iface8.c_str(), &stats) == 0) {
+         return statsValueToEntry(env, &stats);
+     } else {
+-        return nullptr;
 +        if (parseIfaceStats(iface8.c_str(), &stats) == 0) {
 +            return statsValueToEntry(env, &stats);
 +        } else {
 +            return nullptr;
 +        }
-+    }
+     }
  }
  
- static jobject nativeGetUidStat(JNIEnv* env, jclass clazz, jint uid) {
-     StatsValue stats = {};
--    if (bpfGetUidStats(uid, &stats)) return nullptr;
--    return statsValueToEntry(env, &stats);
-+
-+    if (bpfGetUidStats(uid, &stats) == 0) {
-+        return statsValueToEntry(env, &stats);
-+    } else {
+@@ -104,7 +179,11 @@ static jobject nativeGetUidStat(JNIEnv* env, jclass clazz, jint uid) {
+     if (bpfGetUidStats(uid, &stats) == 0) {
+         return statsValueToEntry(env, &stats);
+     } else {
+-        return nullptr;
 +        if (parseUidStats(uid, &stats) == 0) {
 +            return statsValueToEntry(env, &stats);
 +        } else {
 +            return nullptr;
 +        }
-+    }
+     }
  }
  
- static void nativeInitNetworkTracing(JNIEnv* env, jclass clazz) {
 -- 
-2.54.0
+2.56.0

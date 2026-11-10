@@ -1,4 +1,4 @@
-From 698dfdfde72bf005a25ad5cf3514b6ae35882e71 Mon Sep 17 00:00:00 2001
+From 535756fa2282a4e711beb65b19600ac9791157be Mon Sep 17 00:00:00 2001
 From: Aryan Sinha <techyminati@outlook.com>
 Date: Sat, 21 Feb 2026 10:25:40 +0100
 Subject: [PATCH] Connectivity: Skip CLAT perm check on pre-5.10 kernels
@@ -20,12 +20,14 @@ early gate so the check matches the actual running vendor kernel.
 
 This allows devices with older vendor kernels to boot
 successfully without full BPF/CLAT support.
+
+Change-Id: I3b45fba79959c4bf89d799ee2f5a6a485b9b16eb
 ---
- ...id_server_connectivity_ClatCoordinator.cpp | 35 ++++++++++++++-----
- 1 file changed, 27 insertions(+), 8 deletions(-)
+ ...id_server_connectivity_ClatCoordinator.cpp | 34 +++++++++++++++----
+ 1 file changed, 27 insertions(+), 7 deletions(-)
 
 diff --git a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
-index 437e78f..25dd122 100644
+index 619f4a3..32be7a7 100644
 --- a/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 +++ b/service/jni/com_android_server_connectivity_ClatCoordinator.cpp
 @@ -26,8 +26,10 @@
@@ -65,11 +67,11 @@ index 437e78f..25dd122 100644
      verifyPerms((path), (md), AID_ ## uid, AID_ ## gid, "u:object_r:" ctx ":s0", VERIFY_ ## vtype)
  
 @@ -112,6 +132,13 @@ static void verifyClatPerms() {
-     V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
+     V(kClatdDir, S_IFDIR|0750, ROOT, SYSTEM, "system_file", DIR);
      V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
  
 +    // HACK: Some old vendor kernels lack ~5.10 backport of 'bpffs selinux genfscon' support.
-+    // This is *NOT* supported, but let's allow, at least for now, to make 16 QPR2 boot on them.
++    // This is *NOT* supported, but let's allow, at least for now, to make 15 boot on them.
 +    if (!isRunningKernelAtLeast(5, 10)) {
 +        ALOGW("Kernel < 5.10 detected, skipping CLAT perms for legacy kernel.");
 +        return;
@@ -78,7 +80,7 @@ index 437e78f..25dd122 100644
      // Move on to verifying that the bpf programs and maps are as expected.
      // This relies on the kernel and bpfloader.
  
-@@ -137,14 +164,6 @@ static void verifyClatPerms() {
+@@ -137,13 +164,6 @@ static void verifyClatPerms() {
  
  #undef V2
  
@@ -89,9 +91,8 @@ index 437e78f..25dd122 100644
 -        ALOGE("GSI with *BAD* pre-5.10 kernel lacking bpffs selinux genfscon support.");
 -        return;
 -    }
--
+ 
      if (fatal) abort();
  }
- 
 -- 
-2.54.0
+2.56.0

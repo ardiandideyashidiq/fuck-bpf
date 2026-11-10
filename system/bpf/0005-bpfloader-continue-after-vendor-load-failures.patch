@@ -1,40 +1,35 @@
-From 71ce335c5ec150c4b26ca35b24fab2743a10aa2c Mon Sep 17 00:00:00 2001
+From 5c47eb914f11498ce22235afcaea778b563cde0c Mon Sep 17 00:00:00 2001
 From: OpenCode <opencode@example.com>
 Date: Thu, 30 Apr 2026 08:47:35 +0700
 Subject: [PATCH] bpfloader: continue after vendor load failures
 
 Change-Id: I9e6d5c7091be430aaa2e17ad546fc18d4e30608e
 ---
- loader/Loader.cpp   | 3 +--
- loader/bpfloader.rs | 2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ loader/Loader.cpp | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/loader/Loader.cpp b/loader/Loader.cpp
-index 6303d30..ee56660 100644
+index 5b6e88c..f8e4a70 100644
 --- a/loader/Loader.cpp
 +++ b/loader/Loader.cpp
-@@ -688,8 +688,7 @@ void vendorBpfLoader() {
-         ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
-         ALOGE("If this triggers randomly, you might be hitting some memory allocation "
-               "problems or startup script race.");
--        ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
--        return;
-+        ALOGE("--- CONTINUING TO netbpfload done FOR DEGRADED BOOT ---");
+@@ -1008,7 +1008,7 @@ void initLogging() {
+ void createBpfFsSubDirectories() {
+     for (const auto& location : android::bpf::locations) {
+         if (android::bpf::createSysFsBpfSubDir(location.prefix)) {
+-            exit(120);
++            ALOGE("Failed to create bpf fs subdir %s -- continuing anyway", location.prefix);
+         }
      }
- 
-     const char* args[] = {"/apex/com.android.tethering/bin/netbpfload", "done", NULL};
-diff --git a/loader/bpfloader.rs b/loader/bpfloader.rs
-index ac1ca3b..477cfe2 100644
---- a/loader/bpfloader.rs
-+++ b/loader/bpfloader.rs
-@@ -683,7 +683,7 @@ fn main() {
-     info!("Loading legacy BPF progs");
- 
-     if let Err(e) = create_dir(Path::new("/sys/fs/bpf/vendor")) {
--        panic!("Error during mkdir /sys/fs/bpf/vendor: {e}");
-+        error!("Failed to mkdir /sys/fs/bpf/vendor: {e} -- continuing anyway");
-     };
- 
-     // SAFETY: Linking in the existing legacy vendor bpfloader functionality.
+ }
+@@ -1021,8 +1021,7 @@ void legacyBpfLoader() {
+             ALOGE("If this triggers reliably, you're probably missing kernel options or patches.");
+             ALOGE("If this triggers randomly, you might be hitting some memory allocation "
+                   "problems or startup script race.");
+-            ALOGE("--- DO NOT EXPECT SYSTEM TO BOOT SUCCESSFULLY ---");
+-            return;
++            ALOGE("--- CONTINUING TO netbpfload done FOR DEGRADED BOOT ---");
+         }
+     }
+ }
 -- 
-2.54.0
+2.56.0

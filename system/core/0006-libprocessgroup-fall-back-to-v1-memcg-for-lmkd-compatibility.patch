@@ -1,19 +1,19 @@
-From d9fbaee9a744b154fdb154cf26dc954e71ca2eaa Mon Sep 17 00:00:00 2001
+From 46ca3ff5fa22df89e48e07df54728a3d7a602b50 Mon Sep 17 00:00:00 2001
 From: "Christopher A. Williamson" <contact@chrisaw.io>
 Date: Wed, 18 Mar 2026 12:18:21 +0000
 Subject: [PATCH] libprocessgroup: fall back to v1 memcg for lmkd compatibility
- on GSI
+  on GSI
 
 Change-Id: I0f1f0da2ec6e4a2da985c141974edce4f96db41d
 ---
- libprocessgroup/setup/cgroup_map_write.cpp | 80 ++++++++++++++++++++++
- 1 file changed, 80 insertions(+)
+ libprocessgroup/setup/cgroup_map_write.cpp | 79 ++++++++++++++++++++++
+ 1 file changed, 79 insertions(+)
 
 diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
-index 458e4cddf..57949261a 100644
+index c4e1fb6..fda6b46 100644
 --- a/libprocessgroup/setup/cgroup_map_write.cpp
 +++ b/libprocessgroup/setup/cgroup_map_write.cpp
-@@ -22,12 +22,15 @@
+@@ -22,6 +22,7 @@
  #include <fcntl.h>
  #include <grp.h>
  #include <pwd.h>
@@ -21,15 +21,15 @@ index 458e4cddf..57949261a 100644
  #include <sys/mount.h>
  #include <sys/stat.h>
  #include <sys/types.h>
- #include <unistd.h>
+@@ -31,6 +32,7 @@
  
-+#include <android-base/file.h>
+ #include <android-base/file.h>
  #include <android-base/logging.h>
 +#include <android-base/properties.h>
  #include <processgroup/cgroup_descriptor.h>
  #include <processgroup/processgroup.h>
  #include <processgroup/setup.h>
-@@ -290,6 +293,83 @@ bool CgroupSetup() {
+@@ -329,6 +331,83 @@ bool CgroupSetup() {
              return true;
          }
  
@@ -114,5 +114,4 @@ index 458e4cddf..57949261a 100644
              // issue a warning and proceed with the next cgroup
              LOG(WARNING) << "Failed to setup " << name << " cgroup";
 -- 
-2.43.0
-
+2.56.0
