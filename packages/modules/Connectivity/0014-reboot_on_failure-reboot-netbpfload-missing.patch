@@ -1,0 +1,45 @@
+From 163fd5018a8899bd9710e87d8c54ab0e35f47978 Mon Sep 17 00:00:00 2001
+From: Doze-off <viniciussadxxx@gmail.com>
+Date: Sun, 12 Jul 2026 22:02:45 +0000
+Subject: [PATCH] reboot_on_failure reboot,netbpfload-missing
+
+Even if BPF fails, it ignores the reboot, and regarding the UI...
+
+Change-Id: I7570102a0053bbd1a3394f3bf2aadbcdfcd6f7be
+---
+ bpf/loader/netbpfload.33rc | 1 -
+ bpf/loader/netbpfload.35rc | 1 -
+ bpf/loader/netbpfload.rc   | 1 -
+ 3 files changed, 3 deletions(-)
+
+diff --git a/bpf/loader/netbpfload.33rc b/bpf/loader/netbpfload.33rc
+index eb937dd..49df672 100644
+--- a/bpf/loader/netbpfload.33rc
++++ b/bpf/loader/netbpfload.33rc
+@@ -17,4 +17,3 @@ service mdnsd_netbpfload /apex/com.android.tethering/bin/netbpfload
+     file /dev/kmsg w
+     rlimit memlock 1073741824 1073741824
+     oneshot
+-    reboot_on_failure reboot,netbpfload-failed
+diff --git a/bpf/loader/netbpfload.35rc b/bpf/loader/netbpfload.35rc
+index 0fbcb5a..2055454 100644
+--- a/bpf/loader/netbpfload.35rc
++++ b/bpf/loader/netbpfload.35rc
+@@ -5,5 +5,4 @@ service bpfloader /apex/com.android.tethering/bin/netbpfload
+     file /dev/kmsg w
+     rlimit memlock 1073741824 1073741824
+     oneshot
+-    reboot_on_failure reboot,bpfloader-failed
+     override
+diff --git a/bpf/loader/netbpfload.rc b/bpf/loader/netbpfload.rc
+index 10bfbb2..1d0be65 100644
+--- a/bpf/loader/netbpfload.rc
++++ b/bpf/loader/netbpfload.rc
+@@ -65,5 +65,4 @@ service bpfloader /system/bin/false
+     #    'cannot prove return value is 0 or 1' or 'unsupported / unknown operation / helper',
+     #    'invalid bpf_context access', etc.
+     #
+-    reboot_on_failure reboot,netbpfload-missing
+     updatable
+-- 
+2.56.0
