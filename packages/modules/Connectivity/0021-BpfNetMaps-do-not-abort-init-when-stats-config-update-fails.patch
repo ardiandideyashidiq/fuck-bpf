@@ -1,0 +1,53 @@
+From a8114ad8da01c89f64e3983f6ebad37184f1ffbe Mon Sep 17 00:00:00 2001
+From: rdndds <rdndds@gmail.com>
+Date: Thu, 12 Nov 2026 18:05:53 +0700
+Subject: [PATCH] BpfNetMaps: do not abort init when stats config update fails
+
+On some 4.14 kernels (e.g. Infinix X6812B 4.14.186), BPF_MAP_UPDATE_ELEM
+on BPF_MAP_TYPE_ARRAY succeeds for key 0 but returns EINVAL for any
+non-zero key.
+
+In initBpfMaps(), sConfigurationMap opens and updates key 0
+(UID_RULES_CONFIGURATION_KEY), then fails with EINVAL on key 1
+(CURRENT_STATS_MAP_CONFIGURATION_KEY) and aborts before opening
+sUidOwnerMap and the remaining maps. When the init exception is caught,
+sConfigurationMap remains non-null while sUidOwnerMap is null:
+ConnectivityService/NPMS subsequently enable BACKGROUND_MATCH and
+OEM_DENY_1_MATCH in map_netd_configuration_map[0], while setUidRule()
+no-ops, leaving map_netd_uid_owner_map empty and blocking networking
+and DNS for all non-system UIDs in netd and kernel cgroupskb/cgroupsock.
+
+Log a warning instead of aborting on CURRENT_STATS_MAP_CONFIGURATION_KEY
+(index 1 is already zero-initialized to SELECT_MAP_A by the kernel), and
+clear sConfigurationMap if init still aborts before sUidOwnerMap opens.
+
+Change-Id: Ib246440d559b5a3d994b82ab223833e42aff6e1f
+---
+ service/src/com/android/server/BpfNetMaps.java | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/service/src/com/android/server/BpfNetMaps.java b/service/src/com/android/server/BpfNetMaps.java
+index 8f57ad7..ee57329 100644
+--- a/service/src/com/android/server/BpfNetMaps.java
++++ b/service/src/com/android/server/BpfNetMaps.java
+@@ -262,7 +262,7 @@ public class BpfNetMaps {
+             sConfigurationMap.updateEntry(CURRENT_STATS_MAP_CONFIGURATION_KEY,
+                     new U32(STATS_SELECT_MAP_A));
+         } catch (ErrnoException e) {
+-            throw new IllegalStateException("Failed to initialize current stats configuration", e);
++            Log.w(TAG, "Failed to initialize current stats configuration, continuing", e);
+         }
+ 
+         if (sUidOwnerMap == null) {
+@@ -372,6 +372,9 @@ public class BpfNetMaps {
+             try {
+                 ensureInitialized(context);
+             } catch (Throwable t) {
++                if (sUidOwnerMap == null) {
++                    sConfigurationMap = null;
++                }
+                 Log.e(TAG, "Failed to initialize BPF maps", t);
+             }
+         }
+-- 
+2.56.0
