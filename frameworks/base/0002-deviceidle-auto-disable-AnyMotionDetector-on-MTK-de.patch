@@ -1,0 +1,52 @@
+From e90fad396a5869f455f2626c3186558d13bc0d23 Mon Sep 17 00:00:00 2001
+From: "Christopher A. Williamson" <contact@chrisaw.io>
+Date: Sun, 26 Apr 2026 16:43:59 +0100
+Subject: [PATCH] deviceidle: auto-disable AnyMotionDetector on MTK devices
+
+MTK vendor HALs on A16 kernels continuously fire motion events,
+preventing doze and burning battery. The AnyMotionDetector wake
+lock holds for minutes at a time and deviceidle_maint never closes.
+
+Auto-disable the motion sensor for doze detection on MTK devices by
+checking ro.hardware and ro.board.platform in the Injector's
+useMotionSensor() method. When MTK is detected, return false so
+device idle uses the stationary timer instead.
+
+Fixes #21
+
+Change-Id: I5e22b3a7c80f49935a20f1844fcb8c2fd32debd4
+---
+ .../java/com/android/server/DeviceIdleController.java  | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java b/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
+index 6fbbb5f42..e4e2c9526 100644
+--- a/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
++++ b/apex/jobscheduler/service/java/com/android/server/DeviceIdleController.java
+@@ -69,6 +69,7 @@ import android.os.Message;
+ import android.os.PowerExemptionManager;
+ import android.os.PowerExemptionManager.ReasonCode;
+ import android.os.PowerExemptionManager.TempAllowListType;
++import android.os.SystemProperties;
+ import android.os.PowerManager;
+ import android.os.PowerManager.ServiceType;
+ import android.os.PowerManagerInternal;
+@@ -2587,6 +2588,15 @@ public class DeviceIdleController extends SystemService
+         }
+ 
+         boolean useMotionSensor() {
++            // MTK vendor HALs on A16 kernels continuously fire motion events,
++            // preventing doze and burning battery. Auto-disable AnyMotionDetector
++            // for MTK devices (issue #21).
++            String hardware = SystemProperties.get("ro.hardware", "");
++            String board = SystemProperties.get("ro.board.platform", "");
++            if (hardware.startsWith("mt") || board.startsWith("mt")
++                    || hardware.contains("mtk") || board.contains("mtk")) {
++                return false;
++            }
+             return mContext.getResources().getBoolean(
+                    com.android.internal.R.bool.config_autoPowerModeUseMotionSensor);
+         }
+-- 
+2.56.0
+
