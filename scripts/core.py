@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from scripts import SCRIPT_DIR, reporting
+from scripts import MANIFEST_NAME, SCRIPT_DIR, reporting
 from scripts.git_helpers import git, is_series_patch_in_repo
 from scripts.manifest import mark_unreached, run_manifest_series, run_patch_on_repo
 from scripts.state import cleanup_worktree, record_base
@@ -24,10 +24,13 @@ def run_glob_series(series_dir: str, repo_dir: str, mode: str) -> bool:
     patches = sorted((SCRIPT_DIR / series_dir).glob("*.patch"))
     for i, patch in enumerate(patches):
         if not run_patch_on_repo(series_dir, repo_dir, patch.name, mode):
-            if mode != "probe":
+            if mode == "apply":
                 # Bailing on the first failure means every later patch in the
                 # series never ran. Name them, rather than letting the series
-                # look like it simply had nothing left to do.
+                # look like it simply had nothing left to do. Only meaningful
+                # for a real apply: a dry-run scratch worktree and a probe
+                # worktree both "fail" for reasons that say nothing about the
+                # real tree, so reporting them there is noise, not signal.
                 for skipped_over in patches[i + 1 :]:
                     mark_unreached(f"{series_dir}/{skipped_over.name}")
             return False
@@ -35,8 +38,11 @@ def run_glob_series(series_dir: str, repo_dir: str, mode: str) -> bool:
 
 
 def run_series_steps(series_dir: str, repo_dir: str, mode: str) -> bool:
-    if run_manifest_series(series_dir, repo_dir, mode):
-        return True
+    # A series is defined by its manifest when it has one. Falling through to
+    # the glob on a manifest *failure* re-ran every patch in the series, which
+    # double-applied patches and reported already-applied ones as drops.
+    if (SCRIPT_DIR / series_dir / MANIFEST_NAME).exists():
+        return run_manifest_series(series_dir, repo_dir, mode)
     return run_glob_series(series_dir, repo_dir, mode)
 
 

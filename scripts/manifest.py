@@ -198,20 +198,21 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
         if not_needed:
             mark_not_needed(patch_rel)
             record_patch_result(series_dir, "not_needed", patch_rel)
-        else:
-            mark_failed(patch_rel)
-            record_patch_result(series_dir, "failed", patch_rel)
+            # Not needed is a normal outcome, not a break: carrying on is what
+            # lets the rest of the series land. Reporting it stops the series
+            # and marked every later patch as unreached.
+            return True
+        mark_failed(patch_rel)
+        record_patch_result(series_dir, "failed", patch_rel)
     return False
 
 
 def run_patch_sequence(series_dir: str, repo_dir: str, mode: str, *patch_names: str) -> bool:
-    for i, pn in enumerate(patch_names):
+    # Nothing is marked unreached here: a sequence is also how a choice option
+    # is probed, and the option that loses must not report its patches as
+    # dropped from a series that never ran them.
+    for pn in patch_names:
         if not run_patch_on_repo(series_dir, repo_dir, pn, mode):
-            if mode != "probe":
-                # Everything after the failure never ran. Say so out loud
-                # instead of letting the series quietly look complete.
-                for skipped_over in patch_names[i + 1 :]:
-                    mark_unreached(f"{series_dir}/{skipped_over}")
             return False
     return True
 
@@ -237,7 +238,13 @@ def run_patch_choice(series_dir: str, repo_dir: str, mode: str, choice_name: str
         opt_patches = parts[1:]
         if probe_option(series_dir, repo_dir, *opt_patches):
             logger.info("Selected patch option: %s %s %s", series_dir, choice_name, opt_name)
-            return run_patch_sequence(series_dir, repo_dir, mode, *opt_patches)
+            for i, pn in enumerate(opt_patches):
+                if not run_patch_on_repo(series_dir, repo_dir, pn, mode):
+                    if mode == "apply":
+                        for skipped_over in opt_patches[i + 1 :]:
+                            mark_unreached(f"{series_dir}/{skipped_over}")
+                    return False
+            return True
     mark_failed(f"{series_dir}/{choice_name}")
     return False
 

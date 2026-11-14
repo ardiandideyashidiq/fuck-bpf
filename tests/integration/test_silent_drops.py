@@ -142,3 +142,65 @@ def test_failing_patch_names_the_patches_after_it(
     combined = proc.stdout + proc.stderr
     assert "0001-broken.patch" in combined
     assert "never reached" in combined or "0002-never-reached.patch" in combined
+
+
+def test_dry_run_does_not_report_unreached_patches(
+    integration_env: tuple[Path, Path, Path],
+) -> None:
+    """A dry-run scratch worktree must not claim patches were dropped.
+
+    Regression: the dry-run and the choice-probe both run series steps in a
+    throwaway worktree, where an apply failure says nothing about the real
+    tree. Reporting them as "never applied" buried the real signal.
+    """
+    aosp_root, series_root, target = integration_env
+    patch_dir = series_root / "demo" / "project"
+
+    _commit(target, "demo.txt", "hello\n", "first")
+    (patch_dir / "0001-first.patch").write_text(_format_patch(target))
+
+    (patch_dir / "0002-broken.patch").write_text(
+        "From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001\n"
+        "From: T <t@t>\n"
+        "Subject: [PATCH] broken\n"
+        "\n"
+        "---\n"
+        " absent.txt | 3 ++-\n"
+        " 1 file changed, 2 insertions(+), 1 deletion(-)\n"
+        "\n"
+        "diff --git a/absent.txt b/absent.txt\n"
+        "--- a/absent.txt\n"
+        "+++ b/absent.txt\n"
+        "@@ -1,3 +1,4 @@\n"
+        " line one\n"
+        "-line two that is not there\n"
+        "+line two replaced\n"
+        " line three\n"
+        "+line four\n"
+        "-- \n"
+        "2.40.0\n"
+    )
+    (patch_dir / "0003-after.patch").write_text(
+        "From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001\n"
+        "From: T <t@t>\n"
+        "Subject: [PATCH] after\n"
+        "\n"
+        "---\n"
+        " other.txt | 1 +\n"
+        " 1 file changed, 1 insertion(+)\n"
+        "\n"
+        "diff --git a/other.txt b/other.txt\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/other.txt\n"
+        "@@ -0,0 +1 @@\n"
+        "+y\n"
+        "-- \n"
+        "2.40.0\n"
+    )
+
+    proc = run_apply(series_root, aosp_root, "--dry-run")
+    combined = proc.stdout + proc.stderr
+    assert "never applied" not in combined, combined
+    # The real tree is untouched by a dry-run.
+    assert not (target / "other.txt").exists()
