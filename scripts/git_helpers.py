@@ -73,11 +73,13 @@ def is_patch_applied(repo_dir: str, patch: Path, series_dir: str) -> bool:
     revs_result = git("rev-list", "--max-count=200", "HEAD", cwd=Path.cwd() / repo_dir, capture=True, check=False)
     if revs_result.returncode != 0:
         return False
-    revs = revs_result.stdout.strip().split()
-    saw_non_series = False
-    for commit in revs:
+    # Scan for an exact patch-id match first, then decide. Walking from HEAD
+    # and bailing out on the first foreign commit rejects a patch that *is*
+    # present whenever a later commit touches the same files, or whenever a
+    # series commit no longer reproduces its patch-id byte-for-byte (an edited
+    # patch file, a rebased or reformatted commit). In both cases the patch is
+    # already in the tree and must not be applied a second time.
+    for commit in revs_result.stdout.strip().split():
         if is_patch_in_commit(repo_dir, patch, commit):
-            return not saw_non_series
-        if not is_series_patch_in_repo(repo_dir, series_dir, commit):
-            saw_non_series = True
+            return True
     return False
