@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scripts import SCRIPT_DIR, reporting
 from scripts.git_helpers import git, is_series_patch_in_repo
-from scripts.manifest import run_manifest_series, run_patch_on_repo
+from scripts.manifest import mark_unreached, run_manifest_series, run_patch_on_repo
 from scripts.state import cleanup_worktree, record_base
 
 logger = logging.getLogger("fuck-bpf")
@@ -22,8 +22,14 @@ def list_patch_dirs() -> list[str]:
 
 def run_glob_series(series_dir: str, repo_dir: str, mode: str) -> bool:
     patches = sorted((SCRIPT_DIR / series_dir).glob("*.patch"))
-    for patch in patches:
+    for i, patch in enumerate(patches):
         if not run_patch_on_repo(series_dir, repo_dir, patch.name, mode):
+            if mode != "probe":
+                # Bailing on the first failure means every later patch in the
+                # series never ran. Name them, rather than letting the series
+                # look like it simply had nothing left to do.
+                for skipped_over in patches[i + 1 :]:
+                    mark_unreached(f"{series_dir}/{skipped_over.name}")
             return False
     return True
 

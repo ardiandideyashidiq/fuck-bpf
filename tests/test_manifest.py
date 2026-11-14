@@ -7,8 +7,12 @@ from scripts.manifest import (
     FAILED_PATCHES,
     NOT_NEEDED_PATCHES,
     SERIES_STATS,
+    SKIPPED_PATCHES,
+    UNREACHED_PATCHES,
     mark_failed,
     mark_not_needed,
+    mark_skipped,
+    mark_unreached,
     print_failures,
     print_summary,
     record_patch_result,
@@ -44,6 +48,54 @@ def buf_reporter(monkeypatch: pytest.MonkeyPatch) -> io.StringIO:
     reporting.set_reporter(reporting.PlainReporter(stream=buf))
     yield buf
     reporting.set_reporter(original)
+
+
+class TestUnexplainedDrops:
+    """A patch that was never applied must never read as a peaceful 'skipped'.
+
+    SERIES_STATS + the summary were the only accounting, and both collapse into
+    counts: a patch that ran out of a sequence (return False -> loop breaks),
+    or that was silently treated as a duplicate, vanished with no listing.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        reset_results()
+
+    def test_skipped_patches_are_listed_individually(self, buf_reporter: io.StringIO) -> None:
+        mark_skipped("system/bpf/0001-foo.patch")
+        print_summary()
+        output = buf_reporter.getvalue().replace("stars", "")
+        assert "system/bpf/0001-foo.patch" in output
+
+    def test_reset_clears_skipped(self) -> None:
+        mark_skipped("system/bpf/0001-foo.patch")
+        reset_results()
+        assert SKIPPED_PATCHES == []
+
+    def test_every_patch_reaches_a_terminal_state(self, buf_reporter: io.StringIO) -> None:
+        # applied + skipped + not_needed + failed must equal what the summary totals.
+        record_patch_result("system/bpf", "applied")
+        record_patch_result("system/bpf", "skipped")
+        record_patch_result("system/bpf", "not_needed")
+        record_patch_result("system/bpf", "failed")
+        assert SERIES_STATS["system/bpf"]["applied"] == 1
+        print_summary()
+        output = buf_reporter.getvalue()
+        assert "1 applied" in output and "1 skipped" in output
+
+    def test_aborted_series_reports_unreached_patches(self, buf_reporter: io.StringIO) -> None:
+        # run_patch_sequence stops at the first failure; the patches after it
+        # never ran at all and used to leave no trace whatsoever.
+        mark_unreached("system/bpf/0002-bar.patch")
+        print_failures()
+        output = buf_reporter.getvalue().replace("stars", "")
+        assert "system/bpf/0002-bar.patch" in output
+
+    def test_reset_clears_unreached(self) -> None:
+        mark_unreached("system/bpf/0002-bar.patch")
+        reset_results()
+        assert UNREACHED_PATCHES == []
 
 
 class TestReportingFunctions:

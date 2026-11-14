@@ -10,20 +10,35 @@ logger = logging.getLogger("fuck-bpf")
 
 FAILED_PATCHES: list[str] = []
 NOT_NEEDED_PATCHES: list[str] = []
+SKIPPED_PATCHES: list[str] = []
+
+# Patches that a series never got to (a sequence stopped at an earlier failure,
+# or a choice picked another option). They were never applied and must be
+# reported, otherwise a broken series looks like a clean run.
+UNREACHED_PATCHES: list[str] = []
 
 SERIES_STATS: dict[str, dict[str, int]] = {}
+# Every patch the run actually considered, in order, with its outcome. The
+# counts in SERIES_STATS cannot distinguish "already applied" from "never
+# applied", which is exactly how patches went missing silently.
+PATCH_OUTCOMES: dict[str, str] = {}
 
 
 def reset_results() -> None:
     FAILED_PATCHES.clear()
     NOT_NEEDED_PATCHES.clear()
+    SKIPPED_PATCHES.clear()
+    UNREACHED_PATCHES.clear()
     SERIES_STATS.clear()
+    PATCH_OUTCOMES.clear()
 
 
-def record_patch_result(series_dir: str, status: str) -> None:
+def record_patch_result(series_dir: str, status: str, patch_rel: str | None = None) -> None:
     if series_dir not in SERIES_STATS:
         SERIES_STATS[series_dir] = {"applied": 0, "skipped": 0, "failed": 0, "not_needed": 0}
     SERIES_STATS[series_dir][status] += 1
+    if patch_rel is not None:
+        PATCH_OUTCOMES[patch_rel] = status
 
 
 def mark_failed(patch_rel: str) -> None:
@@ -32,6 +47,15 @@ def mark_failed(patch_rel: str) -> None:
 
 def mark_not_needed(patch_rel: str) -> None:
     NOT_NEEDED_PATCHES.append(patch_rel)
+
+
+def mark_skipped(patch_rel: str) -> None:
+    SKIPPED_PATCHES.append(patch_rel)
+
+
+def mark_unreached(patch_rel: str) -> None:
+    if patch_rel not in UNREACHED_PATCHES:
+        UNREACHED_PATCHES.append(patch_rel)
 
 
 def _patch_change_already_present(repo_dir: str, patch: Path) -> bool:
@@ -69,6 +93,11 @@ def _patch_change_already_present(repo_dir: str, patch: Path) -> bool:
 
 
 def print_failures() -> int:
+    if UNREACHED_PATCHES:
+        reporting.blank()
+        reporting.print_line("[bold red]Patches never applied (series stopped before reaching them):[/]")
+        for p in UNREACHED_PATCHES:
+            reporting.print_line(f"  ! {p}")
     if NOT_NEEDED_PATCHES:
         reporting.blank()
         reporting.print_line("[bold cyan]Patches not needed for this AOSP version:[/]")
@@ -84,6 +113,7 @@ def print_failures() -> int:
 
 def print_summary() -> None:
     if not SERIES_STATS:
+        _print_skipped_listing()
         return
     reporting.blank()
     reporting.print_line("Patch Series Summary")
@@ -99,6 +129,27 @@ def print_summary() -> None:
         t_f += f
         reporting.print_line(f"  {sdir}: {a} applied, {s} skipped, {n} not needed, {f} failed")
     reporting.print_line(f"  Total: {t_a} applied, {t_s} skipped, {t_n} not needed, {t_f} failed")
+    _print_skipped_listing()
+
+
+def _print_skipped_listing() -> None:
+    """Name every skipped (already-present) patch, not just count it.
+
+    A count alone cannot be checked against anything: a patch that silently
+    failed to apply also lands in "skipped" when its change looks present, so
+    the listing is the only way to see what was actually left out.
+    """
+    if not SKIPPED_PATCHES:
+        return
+    reporting.blank()
+    reporting.print_line("Skipped (diff already present, no new commit):")
+    for p in SKIPPED_PATCHES:
+        reporting.print_line(f"  = {p}")
+
+
+def unreached_for_series(series_dir: str, all_patches: list[str]) -> list[str]:
+    """Patches in a series that produced no outcome this run."""
+    return [f"{series_dir}/{p}" for p in all_patches if f"{series_dir}/{p}" not in PATCH_OUTCOMES]
 
 
 def trim_manifest_line(line: str) -> str:
@@ -112,13 +163,14 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
     if not patch.exists():
         mark_failed(patch_rel)
         if mode != "probe":
-            record_patch_result(series_dir, "failed")
+            record_patch_result(series_dir, "failed", patch_rel)
         return False
 
     if is_patch_applied(repo_dir, patch, series_dir):
         if mode != "probe":
             logger.info("Skipping duplicate patch: %s", patch_rel)
-            record_patch_result(series_dir, "skipped")
+            mark_skipped(patch_rel)
+            record_patch_result(series_dir, "skipped", patch_rel)
         return True
 
     result = git("am", "-3", str(patch), cwd=Path(repo_dir), check=False, capture=False)
@@ -128,7 +180,7 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
         elif mode == "dry-run":
             logger.info("Would apply patch: %s", patch_rel)
         if mode != "probe":
-            record_patch_result(series_dir, "applied")
+            record_patch_result(series_dir, "applied", patch_rel)
         return True
 
     git("am", "--abort", cwd=Path(repo_dir), check=False, capture=False)
@@ -145,16 +197,21 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
                 not_needed = _patch_change_already_present(repo_dir, patch)
         if not_needed:
             mark_not_needed(patch_rel)
-            record_patch_result(series_dir, "not_needed")
+            record_patch_result(series_dir, "not_needed", patch_rel)
         else:
             mark_failed(patch_rel)
-            record_patch_result(series_dir, "failed")
+            record_patch_result(series_dir, "failed", patch_rel)
     return False
 
 
 def run_patch_sequence(series_dir: str, repo_dir: str, mode: str, *patch_names: str) -> bool:
-    for pn in patch_names:
+    for i, pn in enumerate(patch_names):
         if not run_patch_on_repo(series_dir, repo_dir, pn, mode):
+            if mode != "probe":
+                # Everything after the failure never ran. Say so out loud
+                # instead of letting the series quietly look complete.
+                for skipped_over in patch_names[i + 1 :]:
+                    mark_unreached(f"{series_dir}/{skipped_over}")
             return False
     return True
 
