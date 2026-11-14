@@ -204,3 +204,35 @@ def test_dry_run_does_not_report_unreached_patches(
     assert "never applied" not in combined, combined
     # The real tree is untouched by a dry-run.
     assert not (target / "other.txt").exists()
+
+
+def test_no_change_am_is_reported_as_duplicate(
+    integration_env: tuple[Path, Path, Path],
+) -> None:
+    """`git am` exits 0 with "No changes" when the patch is already in the tree.
+
+    Regression: that was logged as "Applied patch" even though nothing was
+    committed, so a patch that could never apply again looked like it landed
+    on every single run.
+    """
+    aosp_root, series_root, target = integration_env
+    patch_dir = series_root / "demo" / "project"
+
+    # Capture the patch, then leave the change committed in the tree. The
+    # patch is already present, so `git am -3` reports "No changes" and exits 0.
+    _commit(target, "demo.txt", "hello\n", "first")
+    patch = patch_dir / "0001-first.patch"
+    patch.write_text(_format_patch(target))
+
+    head_before = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=target, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    proc = run_apply(series_root, aosp_root, "--mb")
+    head_after = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=target, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    assert head_after == head_before, "a duplicate must not create a commit"
+    assert "Applied patch:" not in proc.stderr, proc.stderr
+    assert "Skipping duplicate patch:" in proc.stderr, proc.stderr

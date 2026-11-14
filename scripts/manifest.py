@@ -173,8 +173,20 @@ def run_patch_on_repo(series_dir: str, repo_dir: str, patch_name: str, mode: str
             record_patch_result(series_dir, "skipped", patch_rel)
         return True
 
+    head_before = git("rev-parse", "HEAD", cwd=Path(repo_dir), check=False).stdout.strip()
     result = git("am", "-3", str(patch), cwd=Path(repo_dir), check=False, capture=False)
     if result.returncode == 0:
+        # git am exits 0 with "No changes -- Patch already applied" when the
+        # 3-way merge resolves to the current content. Nothing was committed,
+        # so this is a duplicate, not an apply: saying "Applied" claimed work
+        # that never happened and hid that the patch is already in the tree.
+        head_after = git("rev-parse", "HEAD", cwd=Path(repo_dir), check=False).stdout.strip()
+        if head_after == head_before:
+            if mode != "probe":
+                logger.info("Skipping duplicate patch: %s", patch_rel)
+                mark_skipped(patch_rel)
+                record_patch_result(series_dir, "skipped", patch_rel)
+            return True
         if mode == "apply":
             logger.info("Applied patch: %s", patch_rel)
         elif mode == "dry-run":
