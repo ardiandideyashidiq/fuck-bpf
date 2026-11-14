@@ -1,0 +1,197 @@
+From 7f4630aa5b5359fb366bfa6a0a7cf724078532fe Mon Sep 17 00:00:00 2001
+From: rdndds <rdndds@gmail.com>
+Date: Sun, 15 Nov 2026 05:43:20 +0700
+Subject: [PATCH] net: gracefully fall back when eBPF firewall/maps are
+ unavailable
+
+Hand-rebased onto this tree: the patch's context no longer matched
+(Log.wtf -> Log.e on map open, throw/catch around every map access,
+null-map guards in the stats deletion paths, and fallback returns in
+BpfNetMapsUtils instead of ServiceSpecificException).
+
+Also drops the now-unused android.system.ErrnoException/Os imports,
+which would fail the build under -Werror.
+
+Change-Id: I57be3858a7175d46a01b2e24b242dfc12ebbed51
+---
+ .../src/android/net/BpfNetMapsUtils.java      | 29 ++++++++-------
+ .../server/net/NetworkStatsService.java       | 36 +++++++++++--------
+ 2 files changed, 38 insertions(+), 27 deletions(-)
+
+diff --git a/framework/src/android/net/BpfNetMapsUtils.java b/framework/src/android/net/BpfNetMapsUtils.java
+index 9e81e50..ef8c930 100644
+--- a/framework/src/android/net/BpfNetMapsUtils.java
++++ b/framework/src/android/net/BpfNetMapsUtils.java
+@@ -69,8 +69,6 @@ import android.os.Build;
+ import android.os.Process;
+ import android.os.ServiceSpecificException;
+ import android.os.UserHandle;
+-import android.system.ErrnoException;
+-import android.system.Os;
+ import android.util.Pair;
+ 
+ import androidx.annotation.RequiresApi;
+@@ -217,10 +215,12 @@ public class BpfNetMapsUtils {
+         final long match = getMatchByFirewallChain(chain);
+         try {
+             final U32 config = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY);
++            if (config == null) return false;
+             return (config.val & match) != 0;
+-        } catch (ErrnoException e) {
+-            throw new ServiceSpecificException(e.errno,
+-                    "Unable to get firewall chain status: " + Os.strerror(e.errno));
++        } catch (Throwable e) {
++            android.util.Log.w("BpfNetMapsUtils",
++                    "Unable to get firewall chain status, assuming disabled");
++            return false;
+         }
+     }
+ 
+@@ -246,9 +246,9 @@ public class BpfNetMapsUtils {
+             final UidOwnerValue uidMatch = uidOwnerMap.getValue(new S32(uid));
+             final boolean isMatchEnabled = uidMatch != null && (uidMatch.rule & match) != 0;
+             return isMatchEnabled == isAllowList ? FIREWALL_RULE_ALLOW : FIREWALL_RULE_DENY;
+-        } catch (ErrnoException e) {
+-            throw new ServiceSpecificException(e.errno,
+-                    "Unable to get uid rule status: " + Os.strerror(e.errno));
++        } catch (Throwable e) {
++            android.util.Log.w("BpfNetMapsUtils", "Unable to get uid rule, defaulting to ALLOW");
++            return FIREWALL_RULE_ALLOW;
+         }
+     }
+ 
+@@ -276,7 +276,8 @@ public class BpfNetMapsUtils {
+             final UidOwnerValue value = uidOwnerMap.getValue(new Struct.S32(uid));
+             uidMatch = (value != null) ? value.rule : 0L;
+         } catch (Throwable e) {
+-            android.util.Log.e("BpfNetMapsUtils", "Unable to get firewall chain status");
++            android.util.Log.w("BpfNetMapsUtils", "Firewall unavailable, ignoring BPF");
++            return BLOCKED_REASON_NONE;
+         }
+         final long blockingMatches = (uidRuleConfig & ~uidMatch & sMaskDropIfUnset)
+                 | (uidRuleConfig & uidMatch & sMaskDropIfSet);
+@@ -369,10 +370,12 @@ public class BpfNetMapsUtils {
+         if (dataSaverEnabledMap == null) return false;
+ 
+         try {
+-            return dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY).val == DATA_SAVER_ENABLED;
+-        } catch (ErrnoException e) {
+-            throw new ServiceSpecificException(e.errno, "Unable to get data saver: "
+-                    + Os.strerror(e.errno));
++            final U8 value = dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY);
++            if (value == null) return false;
++            return value.val == DATA_SAVER_ENABLED;
++        } catch (Throwable e) {
++            android.util.Log.w("BpfNetMapsUtils", "Unable to get data saver state");
++            return false;
+         }
+     }
+ }
+diff --git a/service-t/src/com/android/server/net/NetworkStatsService.java b/service-t/src/com/android/server/net/NetworkStatsService.java
+index d479f92..45b7ecf 100644
+--- a/service-t/src/com/android/server/net/NetworkStatsService.java
++++ b/service-t/src/com/android/server/net/NetworkStatsService.java
+@@ -702,6 +702,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                 mDeps.enabledBroadcastNetworkStatsUpdatedRateLimiting(mContext);
+ 
+         mSkDestroyListener = mDeps.makeSkDestroyListener((message) -> {
++            if (mCookieTagMap == null) return;
++
+             final StructInetDiagSockId sockId = message.inetDiagMsg.id;
+             try {
+                 mCookieTagMap.deleteEntry(new S64(sockId.cookie));
+@@ -868,7 +870,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(UID_COUNTERSET_MAP_PATH, S32.class, U8.class);
+             } catch (ErrnoException e) {
+-                Log.wtf(TAG, "Cannot open uid counter set map: " + e);
++                Log.e(TAG, "Cannot open uid counter set map: " + e);
+                 return null;
+             }
+         }
+@@ -879,7 +881,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                 return new BpfMap<>(COOKIE_TAG_MAP_PATH,
+                         S64.class, CookieTagMapValue.class);
+             } catch (ErrnoException e) {
+-                Log.wtf(TAG, "Cannot open cookie tag map: " + e);
++                Log.e(TAG, "Cannot open cookie tag map: " + e);
+                 return null;
+             }
+         }
+@@ -889,7 +891,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(STATS_MAP_A_PATH, StatsMapKey.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
+-                Log.wtf(TAG, "Cannot open stats map A: " + e);
++                Log.e(TAG, "Cannot open stats map A: " + e);
+                 return null;
+             }
+         }
+@@ -899,7 +901,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(STATS_MAP_B_PATH, StatsMapKey.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
+-                Log.wtf(TAG, "Cannot open stats map B: " + e);
++                Log.e(TAG, "Cannot open stats map B: " + e);
+                 return null;
+             }
+         }
+@@ -910,7 +912,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+                 return new BpfMap<>(APP_UID_STATS_MAP_PATH,
+                         S32.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
+-                Log.wtf(TAG, "Cannot open app uid stats map: " + e);
++                Log.e(TAG, "Cannot open app uid stats map: " + e);
+                 return null;
+             }
+         }
+@@ -920,7 +922,8 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+             try {
+                 return new BpfMap<>(IFACE_STATS_MAP_PATH, S32.class, StatsMapValue.class);
+             } catch (ErrnoException e) {
+-                throw new IllegalStateException("Failed to open interface stats map", e);
++                Log.e(TAG, "Cannot open interface stats map: " + e);
++                return null;
+             }
+         }
+ 
+@@ -2748,6 +2751,7 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+ 
+     private <K extends StatsMapKey, V extends StatsMapValue> void deleteStatsMapTagData(
+             IBpfMap<K, V> statsMap, int uid) {
++        if (statsMap == null) return;
+         try {
+             statsMap.forEach((key, value) -> {
+                 if (key.uid == uid) {
+@@ -2792,16 +2796,20 @@ public class NetworkStatsService extends INetworkStatsService.Stub {
+         deleteStatsMapTagData(mStatsMapA, uid);
+         deleteStatsMapTagData(mStatsMapB, uid);
+ 
+-        try {
+-            mUidCounterSetMap.deleteEntry(new S32(uid));
+-        } catch (ErrnoException e) {
+-            logErrorIfNotErrNoent(e, "Failed to delete tag data from uid counter set map");
++        if (mUidCounterSetMap != null) {
++            try {
++                mUidCounterSetMap.deleteEntry(new S32(uid));
++            } catch (ErrnoException e) {
++                logErrorIfNotErrNoent(e, "Failed to delete tag data from uid counter set map");
++            }
+         }
+ 
+-        try {
+-            mAppUidStatsMap.deleteEntry(new S32(uid));
+-        } catch (ErrnoException e) {
+-            logErrorIfNotErrNoent(e, "Failed to delete tag data from app uid stats map");
++        if (mAppUidStatsMap != null) {
++            try {
++                mAppUidStatsMap.deleteEntry(new S32(uid));
++            } catch (ErrnoException e) {
++                logErrorIfNotErrNoent(e, "Failed to delete tag data from app uid stats map");
++            }
+         }
+     }
+ 
+-- 
+2.56.0
+
